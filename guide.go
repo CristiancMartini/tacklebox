@@ -63,6 +63,10 @@ type GuideReserve struct {
 	Fish   []GuideFish `json:"fish"`
 	Waters []Water     `json:"waters"`
 	Spots  []Spot      `json:"spots"`
+	Icons  []MapIcon   `json:"icons"`
+	Lakes  []WaterTile `json:"-"`
+
+	objectives []Objective
 }
 
 type Guide struct {
@@ -441,7 +445,7 @@ func buildGuide(gameDir string) Guide {
 			ids = append(ids, f.ID)
 		}
 		pl := loadPlaces(gameDir, w, ids, zones)
-		res.Waters, res.Spots = pl.Waters, pl.Spots
+		res.Waters, res.Spots, res.Icons, res.Lakes, res.objectives = pl.Waters, pl.Spots, pl.Icons, pl.Lakes, pl.Objectives
 		g.Reserves = append(g.Reserves, res)
 	}
 	g.OK = len(g.Reserves) > 0

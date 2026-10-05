@@ -285,6 +285,9 @@ func readArcEntry(e arcEntry) ([]byte, error) {
 		return nil, fmt.Errorf("compressão %d não suportada", e.ctype)
 	}
 	if e.usize <= 0x80000 {
+		if e.csize == e.usize {
+			return raw, nil
+		}
 		r, err := zlib.NewReader(bytes.NewReader(raw))
 		if err != nil {
 			return nil, err
@@ -304,9 +307,14 @@ func readArcEntry(e arcEntry) ([]byte, error) {
 		if bi >= len(e.blocks) {
 			return nil, errors.New("blocos insuficientes")
 		}
-		cs := int(e.blocks[bi][0])
+		cs, us := int(e.blocks[bi][0]), int(e.blocks[bi][1])
 		if pos+cs > len(raw) {
 			return nil, errors.New("bloco além do fim")
+		}
+		if cs == us { // bloco que não comprimiu fica guardado cru
+			out = append(out, raw[pos:pos+cs]...)
+			pos += cs
+			continue
 		}
 		r, err := zlib.NewReader(bytes.NewReader(raw[pos : pos+cs]))
 		if err != nil {

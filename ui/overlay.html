@@ -35,6 +35,12 @@
   .mission .t1 { font-weight: 600; font-size: 13px; margin-top: 1px; }
   .mission .obj { display: flex; gap: 7px; color: var(--text-2); margin-top: 2px; }
   .mission .obj::before { content: ""; width: 6px; height: 6px; margin-top: 6px; border-radius: 1px; transform: rotate(45deg); background: var(--yellow); flex: none; }
+  .mission .goal { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-2); }
+  .mission .goal b { color: #f2c94c; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .mission .goal svg { flex: none; transition: transform .3s; }
+  .mission .tv { margin-top: 4px; font-size: 11.5px; color: #9fd3f1; }
+  .mini { flex: none; position: relative; height: 150px; background: #141920; border-bottom: 1px solid var(--line); }
+  .mini canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .strip { flex: none; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border); }
   .compass { display: flex; align-items: center; gap: 6px; font-weight: 600; }
   .compass svg { transition: transform .3s; }
@@ -105,6 +111,7 @@
   <button class="x" id="hide" title="Esconder (Ctrl+Shift+G)"><svg width="11" height="11" viewBox="0 0 11 11"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.3"/></svg></button>
 </div>
 <div class="card mission" id="mission"></div>
+<div class="mini" id="mini" style="display:none"><canvas id="miniCanvas"></canvas></div>
 <div class="strip" id="strip"></div>
 <div class="filters" id="filters">
   <button class="f on" data-f="aqui">Aqui</button>
@@ -220,7 +227,11 @@ function render() {
     if (m) { mName = m.name; const o = m.objectives.find(o => o.active); mObj = o ? o.text + (o.counter ? ` (${o.counter})` : "") : ""; }
   }
   $("#mission").style.display = mName ? "" : "none";
-  $("#mission").innerHTML = mName ? `<div class="k">Missão</div><div class="t1">${esc(mName)}</div>${mObj ? `<div class="obj">${esc(mObj)}</div>` : ""}` : "";
+  const tg = here() && live.target;
+  const goal = tg ? `<div class="goal">${arrow(bearing(tg.x, tg.z) - live.heading, 18, "#f2c94c")}<b>${dist(Math.hypot(tg.x - live.x, tg.z - live.z))}</b><span>até o objetivo · ${cardinal(bearing(tg.x, tg.z))}</span></div>` +
+    (tg.travel ? `<div class="tv">Viagem rápida: ${esc(tg.travel)} (${dist(tg.travelDist)} do objetivo)</div>` : "") : "";
+  $("#mission").innerHTML = mName ? `<div class="k">Missão</div><div class="t1">${esc(mName)}</div>${mObj ? `<div class="obj">${esc(mObj)}</div>` : ""}${goal}` : "";
+  drawMini(res);
 
   // faixa: direção, peixes aqui e capturas de hoje
   const idx = {};
@@ -295,6 +306,53 @@ function detail(f, sp, st) {
     ${lures ? `<div class="lbl">Artificiais</div>${lures}` : ""}
     ${f.traits.length ? `<div class="lbl">Comportamento</div><div class="s" style="white-space:normal">${f.traits.map(t => esc(t.name)).join(" · ")}</div>` : ""}
   </div>`;
+}
+
+// ---------- minimapa ----------
+const WORLD = 16384, M2P = 2048 / WORLD, MINIZ = 1.5;
+const mapImgs = {}, mapAsked = {};
+window.onMap = (m) => {
+  if (!m.url) { mapImgs[m.world] = "none"; return; }
+  const im = new Image();
+  im.onload = () => { mapImgs[m.world] = im; render(); };
+  im.src = m.url;
+};
+function drawMini(res) {
+  const box = $("#mini");
+  const img = mapImgs[res.world];
+  if (!here()) { box.style.display = "none"; return; }
+  if (!img) { if (!mapAsked[res.world]) { mapAsked[res.world] = 1; requestMap(res.world); } box.style.display = "none"; return; }
+  if (img === "none") { box.style.display = "none"; return; }
+  box.style.display = "";
+  const cv = $("#miniCanvas"), dpr = window.devicePixelRatio || 1, W = box.clientWidth, H = box.clientHeight;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = (live.x + WORLD / 2) * M2P, cy = (live.z + WORLD / 2) * M2P;
+  ctx.fillStyle = "#141920"; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.translate(W / 2 - cx * MINIZ, H / 2 - cy * MINIZ); ctx.scale(MINIZ, MINIZ); ctx.drawImage(img, 0, 0); ctx.restore();
+  const S = (x, z) => [((x + WORLD / 2) * M2P - cx) * MINIZ + W / 2, ((z + WORLD / 2) * M2P - cy) * MINIZ + H / 2];
+  const inside = (p) => p[0] > 6 && p[1] > 6 && p[0] < W - 6 && p[1] < H - 6;
+  const dot = (p, r, fill, stroke) => { ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke(); } };
+  const unlocked = new Set((stats && stats.ok && stats.travel) || []);
+  for (const ic of res.icons) if (ic.travel) { const p = S(ic.x, ic.z); if (inside(p)) dot(p, 3.5, unlocked.has(ic.travelId) ? "#e3e8ef" : "rgba(20,25,32,.8)", unlocked.has(ic.travelId) ? "#11151b" : "#8793a6"); }
+  const of = open && res.fish.find(f => f.id === open);
+  if (of) for (const s of res.spots.filter(s => s.fish === of.id)) { const p = S(s.x, s.z); if (inside(p)) dot(p, 5, s.kind === "lendario" ? "#c38bff" : "#31aeee", "#0b2433"); }
+  const tg = live.target;
+  if (tg) {
+    let p = S(tg.x, tg.z);
+    if (!inside(p)) {
+      // fora da tela: losango na borda, na direção do objetivo
+      const dx = p[0] - W / 2, dy = p[1] - H / 2, k = Math.min((W / 2 - 10) / Math.abs(dx || 1), (H / 2 - 10) / Math.abs(dy || 1));
+      p = [W / 2 + dx * k, H / 2 + dy * k];
+    }
+    ctx.beginPath(); ctx.moveTo(p[0], p[1] - 7); ctx.lineTo(p[0] + 7, p[1]); ctx.lineTo(p[0], p[1] + 7); ctx.lineTo(p[0] - 7, p[1]); ctx.closePath();
+    ctx.fillStyle = "#f2c94c"; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "#11151b"; ctx.stroke();
+  }
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(live.heading * Math.PI / 180);
+  ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 7); ctx.lineTo(0, 3); ctx.lineTo(-6, 7); ctx.closePath();
+  ctx.fillStyle = "#31aeee"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke(); ctx.restore();
+  ctx.font = "600 10px Segoe UI"; ctx.fillStyle = "rgba(227,232,239,.7)"; ctx.fillText("N", W - 14, 14);
 }
 
 let pending = 0;

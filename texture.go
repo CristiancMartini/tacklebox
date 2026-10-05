@@ -254,3 +254,17 @@ func fishImages(gameDir string, icons []string, size string) map[string]string {
 	}
 	return out
 }
+
+// gameTexture lê uma textura qualquer dos pacotes do jogo.
+func gameTexture(gameDir, path string) (*image.NRGBA, error) {
+	entries, _ := findEntries(gameDir, map[uint64]string{murmur3h1([]byte(path)): path})
+	e, ok := entries[path]
+	if !ok {
+		return nil, errors.New("textura não encontrada: " + path)
+	}
+	b, err := readArcEntry(e)
+	if err != nil {
+		return nil, err
+	}
+	return decodeAVTX(b)
+}

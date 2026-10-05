@@ -309,6 +309,31 @@
   .ktag.lendario { color: var(--r5); border-color: rgba(195,139,255,.5); }
   .ktag.voce { color: var(--green); border-color: rgba(63,191,127,.5); }
   .credit p { margin: 0; flex: 1; }
+
+  /* mapa */
+  .main.full { padding: 0; overflow: hidden; display: flex; }
+  .main.full .page.on { flex: 1; min-height: 0; }
+  #p-mapa { gap: 0; height: 100%; }
+  .mapbar { display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: var(--bar); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .mapbar .grow { flex: 1; }
+  .layer { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-2); background: #222934; color: var(--muted); padding: 4px 9px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  .layer i { width: 9px; height: 9px; border-radius: 50%; display: block; opacity: .4; }
+  .layer.on { color: var(--text); border-color: #4a576c; }
+  .layer.on i { opacity: 1; }
+  .mapbox { position: relative; flex: 1; min-height: 0; background: #141920; overflow: hidden; cursor: grab; }
+  .mapbox.drag { cursor: grabbing; }
+  .mapbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .maptip { position: absolute; pointer-events: none; background: rgba(18,22,30,.95); border: 1px solid var(--border-2); border-radius: 3px; padding: 5px 9px; font-size: 12px; white-space: nowrap; display: none; z-index: 2; }
+  .maptip b { display: block; color: var(--text); }
+  .maptip span { color: var(--muted); }
+  .mapinfo { position: absolute; left: 12px; bottom: 12px; background: rgba(18,22,30,.92); border: 1px solid var(--border); border-radius: 4px; padding: 9px 12px; font-size: 12px; max-width: 360px; z-index: 1; }
+  .mapinfo .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .mapinfo b { color: var(--text); }
+  .mapinfo .tv { margin-top: 4px; color: #9fd3f1; }
+  .mapzoom { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; z-index: 1; }
+  .mapzoom button { width: 30px; height: 30px; border-radius: 3px; border: 1px solid var(--border-2); background: rgba(34,41,52,.95); color: var(--text); cursor: pointer; font-size: 16px; line-height: 1; display: grid; place-items: center; }
+  .mapzoom button.on { border-color: var(--accent); color: var(--accent-h); }
+  .mapmsg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-size: 13px; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -326,6 +351,7 @@
     <button class="tab" data-p="capturas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Capturas</button>
     <button class="tab" data-p="reservas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14m6-12v14"/></svg>Reservas</button>
     <button class="tab" data-p="guia"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20v-5M9 7h7M9 11h5"/></svg>Guia</button>
+    <button class="tab" data-p="mapa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/></svg>Mapa</button>
     <button class="tab" data-p="otimizar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/></svg>Otimizar</button>
   </div>
   <div class="drag"></div>
@@ -443,6 +469,31 @@
             <a class="link" id="lnkSheet">Abrir planilha</a>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- MAPA -->
+    <section class="page" id="p-mapa">
+      <div class="mapbar">
+        <select id="mReserve"></select>
+        <select id="mFish"></select>
+        <div class="grow"></div>
+        <span class="layer on" data-l="missao"><i style="background:#f2c94c"></i>Missão</span>
+        <span class="layer on" data-l="travel"><i style="background:#e3e8ef"></i>Viagem rápida</span>
+        <span class="layer on" data-l="peixe"><i style="background:#31aeee"></i>Peixe</span>
+        <span class="layer on" data-l="lendario"><i style="background:#c38bff"></i>Lendários</span>
+        <span class="layer on" data-l="voce"><i style="background:#3fbf7f"></i>Minhas capturas</span>
+      </div>
+      <div class="mapbox" id="mapBox">
+        <canvas id="mapCanvas"></canvas>
+        <div class="maptip" id="mapTip"></div>
+        <div class="mapinfo" id="mapInfo" style="display:none"></div>
+        <div class="mapzoom">
+          <button id="mapIn" title="Aproximar">+</button>
+          <button id="mapOut" title="Afastar">−</button>
+          <button id="mapMe" title="Seguir você" class="on"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 19 21l-7-4-7 4z"/></svg></button>
+        </div>
+        <div class="mapmsg" id="mapMsg">Carregando o mapa…</div>
       </div>
     </section>
 
@@ -601,7 +652,9 @@ function go(p) {
   $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.p === p));
   $$(".page").forEach(s => s.classList.toggle("on", s.id === "p-" + p));
   document.querySelector(".main").scrollTop = 0;
+  document.querySelector(".main").classList.toggle("full", p === "mapa");
   if (p === "otimizar") loadGraphics();
+  if (p === "mapa") { fillMapControls(); drawMap(); }
 }
 $$(".tab").forEach(t => t.onclick = () => go(t.dataset.p));
 document.addEventListener("click", (e) => { const a = e.target.closest("[data-go]"); if (a) go(a.dataset.go); });
@@ -859,7 +912,7 @@ function renderFish(res, f, idx) {
       <div class="tile"><b style="font-size:15px;padding:2px 0">${whenTag(f.time)}</b><span>Horário</span></div>
       <div class="tile"><b style="font-size:15px;padding:2px 0">${esc(f.current || "—")}</b><span>Correnteza</span></div>
     </div>
-    ${spotHtml ? `<div class="gsec"><h3>Onde pegar <span style="text-transform:none;letter-spacing:0;font-weight:400"> · ${spotNote}</span></h3>${spotHtml}</div>` : ""}
+    ${spotHtml ? `<div class="gsec"><h3>Onde pegar <span style="text-transform:none;letter-spacing:0;font-weight:400"> · ${spotNote} · <a class="link" data-map="${esc(f.id)}">ver no mapa</a></span></h3>${spotHtml}</div>` : ""}
     <div class="gsec"><h3>Iscas</h3>${tiers || `<span class="muted small">Nenhuma isca natural.</span>`}</div>
     ${lures ? `<div class="gsec"><h3>Iscas artificiais e recolhimento</h3>${lures}</div>` : ""}
     ${f.legendary ? "" : `<div class="gsec" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -871,11 +924,13 @@ function renderFish(res, f, idx) {
 $("#gReserve").onchange = renderGuide;
 $("#gSearch").oninput = renderGuide;
 $("#gMissing").onchange = renderGuide;
+$("#gDetail").addEventListener("click", (e) => { const a = e.target.closest("[data-map]"); if (a) showOnMap(guideWorld(), a.dataset.map); });
 $("#gList").addEventListener("click", (e) => { const r = e.target.closest("[data-f]"); if (r) { gSel = r.dataset.f; renderGuide(); } });
 const guideOpen = () => $("#p-guia").classList.contains("on");
 let liveTimer = 0;
 window.onLive = (l) => {
   live = l || { ok: false };
+  drawMap();
   if (guideOpen() && !liveTimer) liveTimer = setTimeout(() => { liveTimer = 0; renderGuide(); }, 400);
 };
 window.onThumbs = (t) => { thumbs = t || {}; renderGuide(); };
@@ -892,6 +947,182 @@ window.onOverlay = (on) => {
 };
 $("#btnOverlay").onclick = async () => { try { window.onOverlay(await toggleOverlay()); } catch (e) { window.onLog(["warn", String(e)]); } };
 $("#lnkSheet").onclick = () => guide && openURL(guide.sheet);
+
+/* ---------- mapa ---------- */
+const WORLD = 16384, M2P = 2048 / WORLD; // a imagem tem 2048 px para 16384 m
+const MS = { cx: 1024, cy: 1024, zoom: 0.5, follow: true, fish: "", layers: { missao: true, travel: true, peixe: true, lendario: true, voce: true }, marks: [] };
+const mapImgs = {}, mapAsked = {};
+window.onMap = (m) => {
+  if (!m.url) { mapImgs[m.world] = "none"; drawMap(); return; }
+  const im = new Image();
+  im.onload = () => { mapImgs[m.world] = im; drawMap(); };
+  im.src = m.url;
+};
+const mapOpen = () => $("#p-mapa").classList.contains("on");
+function mapWorld() {
+  const v = $("#mReserve").value;
+  if (v && v !== "auto") return v;
+  return currentWorld() || (guide && guide.reserves[0] || {}).world;
+}
+function fillMapControls() {
+  if (!guide || !guide.ok) return;
+  const sel = $("#mReserve"), cur = sel.value || "auto";
+  const cw = currentWorld(), cr = guide.reserves.find(r => r.world === cw);
+  sel.innerHTML = `<option value="auto">Automático${cr ? " · " + esc(cr.name) : ""}</option>` + guide.reserves.map(r => `<option value="${r.world}">${esc(r.name)}</option>`).join("");
+  sel.value = cur;
+  const res = guide.reserves.find(r => r.world === mapWorld());
+  if (!res) return;
+  const fs = $("#mFish");
+  if (MS.fish && !res.fish.find(f => f.id === MS.fish)) MS.fish = "";
+  fs.innerHTML = `<option value="">Peixe: nenhum</option>` + res.fish.filter(f => res.spots.some(s => s.fish === f.id && s.kind !== "lendario") || myCatches.some(c => c.world === res.world && c.speciesId === f.speciesId))
+    .map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("");
+  fs.value = MS.fish;
+}
+function showOnMap(world, fishId) {
+  MS.fish = fishId;
+  go("mapa");
+  $("#mReserve").value = world === currentWorld() ? "auto" : world;
+  fillMapControls();
+  $("#mFish").value = fishId;
+  const res = guide.reserves.find(r => r.world === world);
+  const pts = res.spots.filter(s => s.fish === fishId);
+  if (pts.length) {
+    MS.follow = false;
+    MS.cx = pts.reduce((a, s) => a + (s.x + WORLD / 2) * M2P, 0) / pts.length;
+    MS.cy = pts.reduce((a, s) => a + (s.z + WORLD / 2) * M2P, 0) / pts.length;
+  }
+  drawMap();
+}
+
+let mapQueued = 0;
+function drawMap() {
+  if (!mapOpen() || mapQueued) return;
+  mapQueued = requestAnimationFrame(() => { mapQueued = 0; paintMap(); });
+}
+function paintMap() {
+  if (!guide || !guide.ok) return;
+  const world = mapWorld(), res = guide.reserves.find(r => r.world === world);
+  const box = $("#mapBox"), cv = $("#mapCanvas"), dpr = window.devicePixelRatio || 1;
+  const W = box.clientWidth, H = box.clientHeight;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#141920"; ctx.fillRect(0, 0, W, H);
+  const img = mapImgs[world];
+  const msg = $("#mapMsg");
+  if (!img) { if (!mapAsked[world]) { mapAsked[world] = 1; requestMap(world); } msg.style.display = ""; msg.textContent = "Carregando o mapa…"; }
+  else if (img === "none") { msg.style.display = ""; msg.textContent = "Mapa indisponível para esta reserva."; }
+  else msg.style.display = "none";
+  const here = live.ok && live.world === world;
+  if (MS.follow && here) { MS.cx = (live.x + WORLD / 2) * M2P; MS.cy = (live.z + WORLD / 2) * M2P; }
+  const S = (x, z) => [((x + WORLD / 2) * M2P - MS.cx) * MS.zoom + W / 2, ((z + WORLD / 2) * M2P - MS.cy) * MS.zoom + H / 2];
+  if (img && img !== "none") {
+    ctx.save();
+    ctx.translate(W / 2 - MS.cx * MS.zoom, H / 2 - MS.cy * MS.zoom);
+    ctx.scale(MS.zoom, MS.zoom);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
+  }
+  MS.marks = [];
+  const mark = (x, z, label, sub) => { const p = S(x, z); MS.marks.push({ sx: p[0], sy: p[1], label, sub }); return p; };
+  const dot = (sx, sy, r, fill, stroke) => { ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke(); } };
+  const diamond = (sx, sy, r, fill) => { ctx.beginPath(); ctx.moveTo(sx, sy - r); ctx.lineTo(sx + r, sy); ctx.lineTo(sx, sy + r); ctx.lineTo(sx - r, sy); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "#11151b"; ctx.stroke(); };
+  const label = (sx, sy, t, color) => { ctx.font = "600 11px Segoe UI"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(14,17,23,.9)"; ctx.strokeText(t, sx + 8, sy + 4); ctx.fillStyle = color; ctx.fillText(t, sx + 8, sy + 4); };
+  const unlocked = new Set((stats && stats.ok && stats.travel) || []);
+  const dTxt = (x, z) => here ? dist(Math.hypot(x - live.x, z - live.z)) : "";
+
+  if (res && MS.layers.travel) {
+    for (const ic of res.icons) {
+      if (!ic.travel) continue;
+      const on = unlocked.has(ic.travelId);
+      const p = mark(ic.x, ic.z, ic.name || "Viagem rápida", (on ? "desbloqueado" : "ainda não desbloqueado") + (here ? " · " + dTxt(ic.x, ic.z) : ""));
+      dot(p[0], p[1], 4.5, on ? "#e3e8ef" : "rgba(20,25,32,.8)", on ? "#11151b" : "#8793a6");
+      if (ic.name && MS.zoom >= 0.9) label(p[0], p[1], ic.name, on ? "#e3e8ef" : "#8793a6");
+    }
+  }
+  if (res && MS.layers.lendario) {
+    for (const s of res.spots.filter(s => s.kind === "lendario")) {
+      const f = res.fish.find(f => f.id === s.fish);
+      const p = mark(s.x, s.z, f ? f.name : "Lendário", "zona de lendário" + (here ? " · " + dTxt(s.x, s.z) : ""));
+      dot(p[0], p[1], 6, "rgba(195,139,255,.35)", "#c38bff");
+    }
+  }
+  if (res && MS.layers.voce) {
+    const sel = MS.fish && res.fish.find(f => f.id === MS.fish);
+    for (const c of myCatches.filter(c => c.world === world && (!sel || sel.speciesId === c.speciesId))) {
+      const f = res.fish.find(f => f.speciesId === c.speciesId && !f.legendary);
+      const p = mark(c.x, c.z, (f ? f.name : "Captura") + " · " + kg(c.weight), "você pegou " + ago(c.date));
+      dot(p[0], p[1], 3.5, "#3fbf7f", "#11151b");
+    }
+  }
+  if (res && MS.layers.peixe && MS.fish) {
+    const f = res.fish.find(f => f.id === MS.fish);
+    for (const s of res.spots.filter(s => s.fish === MS.fish && s.kind !== "lendario")) {
+      const rr = s.rankMin < 0 ? "" : s.rankMin === s.rankMax || s.rankMax < 0 ? RANKS[s.rankMin] : `${RANKS[s.rankMin]} a ${RANKS[s.rankMax]}`;
+      const p = mark(s.x, s.z, f.name, KIND[s.kind] + (rr ? " · " + rr : "") + (here ? " · " + dTxt(s.x, s.z) : ""));
+      dot(p[0], p[1], 6, "#31aeee", "#0b2433");
+    }
+  }
+  const tg = here && live.target;
+  if (tg && MS.layers.missao) {
+    const a = S(live.x, live.z), b = S(tg.x, tg.z);
+    ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(242,201,76,.8)";
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.setLineDash([]);
+    if (tg.travel) { const v = S(tg.travelX, tg.travelZ); dot(v[0], v[1], 9, "rgba(49,174,238,.25)", "#31aeee"); }
+    mark(tg.x, tg.z, tg.label || "Objetivo", "missão · " + dTxt(tg.x, tg.z));
+    diamond(b[0], b[1], 8, "#f2c94c");
+  }
+  if (here) {
+    const p = S(live.x, live.z);
+    ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(live.heading * Math.PI / 180);
+    ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(7, 8); ctx.lineTo(0, 4); ctx.lineTo(-7, 8); ctx.closePath();
+    ctx.fillStyle = "#31aeee"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke(); ctx.restore();
+  }
+  const info = $("#mapInfo");
+  if (tg) {
+    info.style.display = "";
+    info.innerHTML = `<div class="k">Missão</div><b>${esc(live.mission || "")}</b><div>${esc(tg.label || "")} · <b>${dTxt(tg.x, tg.z)}</b></div>` +
+      (tg.travel ? `<div class="tv">Viagem rápida: ${esc(tg.travel)} (${dist(tg.travelDist)} do objetivo)</div>` : "");
+  } else info.style.display = "none";
+  $("#mapMe").classList.toggle("on", MS.follow);
+}
+
+(function mapEvents() {
+  const box = $("#mapBox");
+  let drag = null;
+  box.addEventListener("mousedown", (e) => { if (e.button !== 0 || e.target.closest("button")) return; drag = { x: e.clientX, y: e.clientY }; box.classList.add("drag"); });
+  window.addEventListener("mouseup", () => { drag = null; box.classList.remove("drag"); });
+  window.addEventListener("mousemove", (e) => {
+    if (drag) {
+      MS.cx -= (e.clientX - drag.x) / MS.zoom; MS.cy -= (e.clientY - drag.y) / MS.zoom;
+      drag = { x: e.clientX, y: e.clientY }; MS.follow = false; drawMap(); return;
+    }
+    if (!mapOpen()) return;
+    const r = box.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    let best = null, bd = 12;
+    for (const m of MS.marks) { const d = Math.hypot(m.sx - mx, m.sy - my); if (d < bd) { bd = d; best = m; } }
+    const tip = $("#mapTip");
+    if (best && mx >= 0 && my >= 0 && mx <= r.width && my <= r.height) {
+      tip.style.display = "block"; tip.style.left = (best.sx + 12) + "px"; tip.style.top = (best.sy - 10) + "px";
+      tip.innerHTML = `<b>${esc(best.label)}</b><span>${esc(best.sub || "")}</span>`;
+    } else tip.style.display = "none";
+  });
+  const zoomAt = (f, mx, my) => {
+    const W = box.clientWidth, H = box.clientHeight;
+    const nz = Math.min(4, Math.max(0.2, MS.zoom * f));
+    if (!MS.follow) { const wx = MS.cx + (mx - W / 2) / MS.zoom, wy = MS.cy + (my - H / 2) / MS.zoom; MS.cx = wx - (mx - W / 2) / nz; MS.cy = wy - (my - H / 2) / nz; }
+    MS.zoom = nz; drawMap();
+  };
+  box.addEventListener("wheel", (e) => { e.preventDefault(); const r = box.getBoundingClientRect(); zoomAt(e.deltaY < 0 ? 1.25 : 0.8, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+  $("#mapIn").onclick = () => zoomAt(1.4, box.clientWidth / 2, box.clientHeight / 2);
+  $("#mapOut").onclick = () => zoomAt(1 / 1.4, box.clientWidth / 2, box.clientHeight / 2);
+  $("#mapMe").onclick = () => { MS.follow = !MS.follow; drawMap(); };
+  document.querySelectorAll(".layer").forEach(l => l.onclick = () => { MS.layers[l.dataset.l] = !MS.layers[l.dataset.l]; l.classList.toggle("on", MS.layers[l.dataset.l]); drawMap(); });
+  $("#mReserve").onchange = () => { MS.follow = $("#mReserve").value === "auto"; if (!MS.follow) { MS.cx = 1024; MS.cy = 1024; MS.zoom = 0.4; } fillMapControls(); drawMap(); };
+  $("#mFish").onchange = () => { MS.fish = $("#mFish").value; drawMap(); };
+  window.addEventListener("resize", drawMap);
+})();
 
 /* ---------- otimização ---------- */
 function save() { saveOptions(opts); renderOptSummary(); }

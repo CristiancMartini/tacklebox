@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image/png"
 	"os"
 	"strings"
 	"time"
@@ -34,6 +35,8 @@ var (
 	flagGuideJSON    = flag.Bool("guia-json", false, "imprime o guia de peixes lido do jogo (diagnóstico)")
 	flagAoVivo       = flag.Bool("ao-vivo", false, "mostra por 20 s o que o overlay lê do jogo aberto (diagnóstico)")
 	flagOverlayTeste = flag.Bool("overlay-sempre", false, "mostra o overlay mesmo sem o jogo em primeiro plano (testes)")
+	flagTextura      = flag.String("textura", "", "salva uma textura dos pacotes do jogo (caminho) como textura.png (diagnóstico)")
+	flagMapa         = flag.String("mapa", "", "salva o mapa de uma reserva (código, ex.: belisama) como mapa.jpg (diagnóstico)")
 	flagFoto         = flag.String("foto", "", "salva a foto de um peixe (nome do ícone) como PNG na pasta atual (diagnóstico)")
 )
 
@@ -51,12 +54,44 @@ func main() {
 	}
 	if *flagAoVivo {
 		attachConsole()
+		g := buildGuide(env.GameDir)
+		st := readStats(env)
 		start := time.Now()
 		for time.Since(start) < 20*time.Second {
-			b, _ := json.Marshal(readLive(env))
+			l := readLive(env)
+			l.Target = missionTarget(&g, &st, l)
+			b, _ := json.Marshal(l)
 			fmt.Printf("%5.1fs %s\n", time.Since(start).Seconds(), b)
 			time.Sleep(time.Second)
 		}
+		return
+	}
+	if *flagMapa != "" {
+		attachConsole()
+		g := buildGuide(env.GameDir)
+		for i := range g.Reserves {
+			if r := &g.Reserves[i]; r.World == *flagMapa {
+				u := mapImage(env.GameDir, r)
+				if i := strings.Index(u, ","); i >= 0 {
+					b, _ := base64.StdEncoding.DecodeString(u[i+1:])
+					os.WriteFile("mapa.jpg", b, 0o644)
+					fmt.Println("ok", len(b))
+				}
+			}
+		}
+		return
+	}
+	if *flagTextura != "" {
+		attachConsole()
+		img, err := gameTexture(env.GameDir, *flagTextura)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		f, _ := os.Create("textura.png")
+		png.Encode(f, img)
+		f.Close()
+		fmt.Println("ok", img.Rect.Dx(), img.Rect.Dy())
 		return
 	}
 	if *flagFoto != "" {

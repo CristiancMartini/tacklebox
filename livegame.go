@@ -39,6 +39,7 @@ type Live struct {
 	Heading   float64 `json:"heading"` // graus: 0 = norte, 90 = leste
 	Mission   string  `json:"mission"`
 	Objective string  `json:"objective"`
+	Target    *Target `json:"target,omitempty"` // destino da missão (calculado com o guia e o save)
 }
 
 const (
@@ -47,6 +48,11 @@ const (
 	offMissionName = 0x18  // CMissionHUDModel: std::string nome da missão
 	offMissionObj  = 0x58  // CMissionHUDModel: std::string objetivo atual
 	offReserveName = 0xB90 // CReserveSelectModel: std::string código da reserva
+	offPlayerChar  = 0x30  // CPlayer: ponteiro para o CCharacter controlado
+
+	// ponteiro global para o personagem local (build 16541670). Só desempata quando
+	// há mais de um CPlayer na memória (partida online); se não bater, vale o primeiro.
+	rvaLocalChar = 0x3343cf0
 )
 
 var liveClasses = []string{"CPlayer", "CMissionHUDModel", "CReserveSelectModel"}
@@ -170,9 +176,17 @@ func (r *liveReader) startScan() {
 			return
 		}
 		for k, v := range found {
-			r.obj[k] = v
+			r.obj[k] = v[0]
 		}
-		if found["CPlayer"] == 0 {
+		if ps := found["CPlayer"]; len(ps) > 1 {
+			local := r.u64(base + rvaLocalChar)
+			for _, p := range ps {
+				if local != 0 && r.u64(p+offPlayerChar) == local {
+					r.obj["CPlayer"] = p
+				}
+			}
+		}
+		if len(found["CPlayer"]) == 0 {
 			r.nextScan = time.Now().Add(r.backoff)
 			if r.backoff < time.Minute {
 				r.backoff *= 2
@@ -266,7 +280,7 @@ func moduleBase(pid uint32) uintptr {
 // scanVtables procura objetos cujo primeiro campo é uma das vtables. O motor
 // guarda esses objetos em arenas de 16 MB, lidas em paralelo; o resto da memória
 // (texturas, áudio) só é lido se não houver arenas.
-func scanVtables(h windows.Handle, targets map[uint64]string) map[string]uintptr {
+func scanVtables(h windows.Handle, targets map[uint64]string) map[string][]uintptr {
 	type region struct{ base, size uintptr }
 	var arenas, others []region
 	var addr uintptr
@@ -290,8 +304,17 @@ func scanVtables(h windows.Handle, targets map[uint64]string) map[string]uintptr
 	}
 
 	var mu sync.Mutex
-	found := map[string]uintptr{}
+	found := map[string][]uintptr{}
 	var done atomic.Bool
+	const maxEach = 4 // vários CPlayer só numa partida online
+	complete := func() bool {
+		for _, name := range targets {
+			if len(found[name]) == 0 || (name == "CPlayer" && len(found[name]) < maxEach) {
+				return false
+			}
+		}
+		return true
+	}
 	run := func(list []region) {
 		jobs := make(chan region)
 		var wg sync.WaitGroup
@@ -321,9 +344,9 @@ func scanVtables(h windows.Handle, targets map[uint64]string) map[string]uintptr
 						for i, w := range words {
 							if name, ok := targets[w]; ok {
 								mu.Lock()
-								if found[name] == 0 {
-									found[name] = rg.base + off + uintptr(i*8)
-									if len(found) == len(targets) {
+								if len(found[name]) < maxEach {
+									found[name] = append(found[name], rg.base+off+uintptr(i*8))
+									if complete() {
 										done.Store(true)
 									}
 								}

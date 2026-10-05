@@ -107,6 +107,8 @@ type ObjectiveInfo struct {
 // MissionInfo é uma missão em andamento; a rastreada (a que aparece na tela do
 // jogo) vem primeiro em cada reserva.
 type MissionInfo struct {
+	ID         uint32          `json:"id"`
+	Active     []uint32        `json:"-"` // objetivos em andamento (lookup3 do objective_id)
 	World      string          `json:"world"`
 	Reserve    string          `json:"reserve"`
 	Name       string          `json:"name"`
@@ -126,6 +128,7 @@ type Stats struct {
 	Catches  []CatchInfo   `json:"catches"`
 	Best     []CatchInfo   `json:"best"`
 	Missions []MissionInfo `json:"missions"`
+	Travel   []uint32      `json:"travel"` // pontos de viagem rápida desbloqueados
 	Modified int64         `json:"modified"`
 }
 
@@ -456,6 +459,10 @@ func statsFromSave(raw []byte, gn gameNames) (Stats, error) {
 	}
 
 	s.Missions = missionsFrom(root, reserveName)
+	s.Travel = []uint32{}
+	for _, u := range list(profile, "UnlockedFastTravelData", "UnlockedLocation") {
+		s.Travel = append(s.Travel, uint32(num(u, "LocationIdHash")))
+	}
 
 	sort.Slice(s.Catches, func(i, j int) bool { return s.Catches[i].Date > s.Catches[j].Date })
 	sort.Slice(s.Species, func(i, j int) bool { return s.Species[i].Caught > s.Species[j].Caught })
@@ -525,7 +532,7 @@ func missionsFrom(root interface{}, reserveName func(float64) (string, string, s
 			if flags&1 == 0 || flags&4 != 0 {
 				continue
 			}
-			mi := MissionInfo{World: world, Reserve: name, Name: gd.label(id), Tracked: id == tracked, Objectives: []ObjectiveInfo{}}
+			mi := MissionInfo{ID: id, World: world, Reserve: name, Name: gd.label(id), Tracked: id == tracked, Objectives: []ObjectiveInfo{}}
 			if k, ok := gd.keyOf[id]; ok {
 				mi.Desc = gd.tr(k + "_desc")
 			}
@@ -543,6 +550,9 @@ func missionsFrom(root interface{}, reserveName func(float64) (string, string, s
 				mi.Total++
 				if oi.Done {
 					mi.Done++
+				}
+				if oi.Active {
+					mi.Active = append(mi.Active, uint32(num(o, "ObjectiveId")))
 				}
 				if oi.Text != "" {
 					mi.Objectives = append(mi.Objectives, oi)

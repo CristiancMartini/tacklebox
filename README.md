@@ -43,7 +43,8 @@ Tudo vem das tabelas do próprio jogo, então cobre todas as reservas e acompanh
 
 Aperte **Ctrl+Shift+G** com o jogo aberto: aparece um painel na lateral da tela, que acompanha você ao vivo:
 
-- **Missão atual** e o objetivo que está na tela do jogo.
+- **Missão atual** e o objetivo que está na tela do jogo, com **seta e distância até o objetivo** e, quando compensa, o ponto de viagem rápida já desbloqueado mais perto dele.
+- **Minimapa** de uns 2 km ao seu redor: você, o objetivo e os pontos de viagem rápida.
 - **Peixes aqui:** as espécies que vivem no lago ou rio onde você está (o jogo divide cada reserva em corpos d'água, cada um com a sua lista), com foto, iscas favoritas e quais você ainda não pegou.
 - **Onde pegar:** seta e distância até os pontos que o próprio jogo marca para cada espécie (áreas das missões de pesca, com a faixa de troféu, desafios de local e esconderijos dos lendários) e até os lugares onde você já pegou aquele peixe.
 - Direção para onde você está olhando e quantos peixes pegou hoje.
@@ -56,6 +57,12 @@ Clique num peixe para ver foto, iscas, artificiais, habitat e comportamento. O p
 - O Tacklebox precisa estar aberto (pode ficar minimizado).
 
 <br clear="right">
+
+### Mapa
+
+![Mapa](docs/mapa.png)
+
+O mapa de cada reserva, feito com a textura do terreno do próprio jogo (lagos e rios em azul), com zoom e arraste. Mostra você ao vivo, a linha até o objetivo da missão, os pontos de viagem rápida (desbloqueados e não), os pontos de cada peixe, as zonas dos lendários e onde você já pescou. No Guia, "ver no mapa" abre os pontos do peixe escolhido.
 
 ### Otimização
 
@@ -107,10 +114,12 @@ Detalhes para quem quiser mexer (tudo descoberto analisando os arquivos do jogo,
 - **Mundo:** `worlds/<reserva>/.../global_trufish.blo` (RTPC) define os corpos d'água do sistema de peixes (TruFish), cada um com a lista de espécies (lookup3 do FishID). As missões de pesca têm áreas que forçam uma espécie e uma faixa de troféu (`TruFishOverrideArea`), e os lendários têm zonas próprias (`L_<espécie>_N`, as mesmas do códice).
 - **Ao vivo:** o executável tem RTTI, então a vtable de `CPlayer`, `CMissionHUDModel` e `CReserveSelectModel` é localizada no .exe e os objetos são procurados na memória do jogo (somente leitura). Coordenadas: X para leste, Z para o sul.
 - **Fotos:** `ui/shared/textures/items/<tamanho>/<peixe>.ddsc` (textura AVTX em BC3), convertidas em PNG.
+- **Mapa:** `worlds/<reserva>/terrain/terrain_color_gpu_2048.ddsc` cobre os 16384 m do `WorldSize` (8 m por pixel, norte = -Z); lagos e rios vêm dos blocos de `global_water.blo`. Os ícones do mapa do jogo (classe de ícone nos `.blo` das localidades) trazem posição, tipo, nome de viagem rápida (o mesmo hash de `UnlockedFastTravelData` no save) e `mission_id`.
+- **Missão:** cada `objective_id` dos arquivos de missão tem lookup3 igual ao ID do objetivo no save; o texto da tela leva à chave de texto, dela ao objetivo e à área onde ele acontece, ajustada pelo ícone da missão no mapa.
 - **Gráficos:** `settings.ini`, seção `[Graphics]`. As faixas de cada opção e a tabela dos presets (Potato → Ultra) foram lidas do executável. A escala de resolução é `FrameScaleMinimum_V2` com `FrameScaleMode=2` (manual).
 - **Vegetação:** `worlds/<mapa>/climate/vegetation_layers.vegetationinfo` (ADF). O **alcance de cada camada** (`VegetationModelLayer.Range` e as camadas de billboard e de física) é aplicado na hora de desenhar; o Tacklebox põe 1 m nas camadas escolhidas e `0xdeadbeef` ("nenhum") na física e nos efeitos dos objetos delas, e grava um pacote extra `game<N+1>`. Testado e descartado: a pasta `dropzone` (a função que a monta está vazia no jogo publicado) e montar pastas com `--vfs-fs/--vfs-archive` (o jogo fecha ao entrar no mapa).
 
-O código está organizado em: `core.go` (ações), `ini.go` (gráficos), `vegmod.go` (vegetação e formato dos pacotes), `adf.go`/`stats.go` (save), `gamedata.go`/`guide.go`/`rtpc.go`/`places.go`/`texture.go` (tabelas, guia, lugares e fotos), `livegame.go` (dados ao vivo), `mycatches.go` (onde você pegou), `winsys.go` (Windows), `gui.go`/`window.go`/`overlay.go` e `ui/` (interface em WebView2).
+O código está organizado em: `core.go` (ações), `ini.go` (gráficos), `vegmod.go` (vegetação e formato dos pacotes), `adf.go`/`stats.go` (save), `gamedata.go`/`guide.go`/`rtpc.go`/`places.go`/`texture.go` (tabelas, guia, lugares e fotos), `livegame.go` (dados ao vivo), `mission.go` (destino da missão), `map.go` (imagem do mapa), `mycatches.go` (onde você pegou), `winsys.go` (Windows), `gui.go`/`window.go`/`overlay.go` e `ui/` (interface em WebView2).
 
 ## Compilar
 

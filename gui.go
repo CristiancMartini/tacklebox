@@ -100,6 +100,7 @@ func runGUI(env Env) error {
 		for {
 			l := readLive(env)
 			shared.Lock()
+			l.Target = missionTarget(guide, stats, l)
 			live = l
 			shared.Unlock()
 			if b, _ := json.Marshal(l); string(b) != string(last) {
@@ -113,6 +114,22 @@ func runGUI(env Env) error {
 	requestPhoto := func(icon string) {
 		go func() {
 			both("onPhoto", map[string]string{"icon": icon, "url": fishImage(env.GameDir, icon, "medium")})
+		}()
+	}
+	// imagem do mapa de uma reserva, sob demanda: a resposta volta por onMap
+	requestMap := func(world string) {
+		go func() {
+			shared.Lock()
+			g := guide
+			shared.Unlock()
+			if g == nil {
+				return
+			}
+			for i := range g.Reserves {
+				if r := &g.Reserves[i]; r.World == world {
+					both("onMap", map[string]string{"world": world, "url": mapImage(env.GameDir, r)})
+				}
+			}
 		}()
 	}
 	common := func(bind func(string, interface{}) error) {
@@ -137,6 +154,7 @@ func runGUI(env Env) error {
 			return thumbs
 		})
 		bind("requestPhoto", requestPhoto)
+		bind("requestMap", requestMap)
 		bind("getMyCatches", loadMyCatches)
 	}
 	go func() {
