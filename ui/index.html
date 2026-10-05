@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Angler Otimizador</title>
+<style>
+  :root {
+    --title: #12161e;
+    --bg: #1a2029;
+    --bar: #161b23;
+    --panel: #232a35;
+    --panel-2: #29313e;
+    --row: #2d3644;
+    --border: #323c4b;
+    --border-2: #3b4658;
+    --text: #e3e8ef;
+    --text-2: #c3cbd7;
+    --muted: #8793a6;
+    --faint: #5d687a;
+    --accent: #1e9ee0;
+    --accent-h: #31aeee;
+    --accent-soft: rgba(30,158,224,.14);
+    --green: #3fbf7f;
+    --red: #e0574c;
+    --yellow: #e2a83a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+    color: var(--text); background: var(--bg);
+    border: 1px solid #0b0e13;
+    display: flex; flex-direction: column; overflow: hidden;
+    user-select: none; -webkit-font-smoothing: antialiased;
+  }
+  svg { flex: none; }
+  button { font: inherit; color: inherit; }
+  button:focus { outline: none; }
+  button:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+  /* ---------- barra de título ---------- */
+  .titlebar {
+    height: 46px; flex: none; display: flex; align-items: stretch;
+    background: var(--title); border-bottom: 1px solid #0c0f15;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 0 18px 0 14px; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 6px; background: var(--accent);
+    display: grid; place-items: center;
+  }
+  .brand-name { font-size: 15px; font-weight: 600; letter-spacing: .1px; }
+  .tabs { display: flex; }
+  .tab {
+    display: flex; align-items: center; gap: 8px; padding: 0 16px;
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 13.5px; font-weight: 600; border-bottom: 2px solid transparent; border-top: 2px solid transparent;
+  }
+  .tab:hover { color: var(--text-2); background: #181d26; }
+  .tab.on { color: var(--text); background: var(--bg); border-bottom-color: var(--accent); }
+  .tab svg { opacity: .9; }
+  .drag { flex: 1; }
+  .pill {
+    align-self: center; display: flex; align-items: center; gap: 7px;
+    padding: 4px 10px; margin-right: 10px; border-radius: 4px;
+    background: #1b212b; border: 1px solid #262e3a; color: var(--text-2); font-size: 12px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.g { background: var(--green); }
+  .dot.y { background: var(--yellow); }
+  .dot.r { background: var(--red); }
+  .wbtn {
+    width: 46px; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .wbtn:hover { background: #1e2530; color: var(--text); }
+  .wbtn.close:hover { background: #c42b1c; color: #fff; }
+
+  /* ---------- sub-barra ---------- */
+  .subbar {
+    height: 38px; flex: none; display: flex; align-items: center; gap: 14px;
+    padding: 0 18px; background: var(--bar); border-bottom: 1px solid #10141b;
+    color: var(--muted); font-size: 12.5px;
+  }
+  .crumb { padding: 3px 9px; border-radius: 3px; background: #1f2630; color: var(--text-2); }
+  .subbar .sep { color: var(--faint); }
+  .subbar .path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 520px; }
+
+  /* ---------- corpo ---------- */
+  .body { flex: 1; min-height: 0; display: flex; }
+  .main { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 18px 22px; }
+  .aside {
+    width: 300px; flex: none; overflow-y: auto; padding: 18px 18px 18px 0;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .main::-webkit-scrollbar, .aside::-webkit-scrollbar, .scroll::-webkit-scrollbar { width: 9px; }
+  .main::-webkit-scrollbar-thumb, .aside::-webkit-scrollbar-thumb, .scroll::-webkit-scrollbar-thumb {
+    background: #353f4f; border-radius: 9px; border: 2px solid var(--bg);
+  }
+  .page { display: none; flex-direction: column; gap: 14px; }
+  .page.on { display: flex; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; }
+  .ph {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ph h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  .ph .hint { color: var(--muted); font-size: 12px; }
+  .ph .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .pb { padding: 14px 16px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .note { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0; }
+  .note b { color: var(--text-2); font-weight: 600; }
+
+  /* jogo */
+  .game { display: flex; gap: 16px; }
+  .cover {
+    width: 118px; height: 176px; flex: none; border-radius: 3px; overflow: hidden;
+    background: #1b212b; border: 1px solid var(--border-2);
+  }
+  .cover img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 8%; display: block; }
+  .game h3 { margin: 2px 0 2px; font-size: 19px; font-weight: 600; }
+  .game .sub { color: var(--muted); margin-bottom: 12px; }
+  .kv { display: grid; grid-template-columns: 128px 1fr; row-gap: 7px; column-gap: 12px; font-size: 12.5px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+
+  /* tabelas */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; font-weight: 600; color: var(--muted); font-size: 12px;
+    padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel-2);
+    position: sticky; top: 0;
+  }
+  td { padding: 8px 16px; border-bottom: 1px solid #2a323f; color: var(--text-2); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .arrow { color: var(--faint); padding: 0 6px; }
+  .chg { color: var(--accent-h); font-weight: 600; }
+  .same { color: var(--muted); }
+  .tag {
+    display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 11.5px; font-weight: 600;
+    border: 1px solid var(--border-2); color: var(--muted);
+  }
+  .tag.on { color: var(--green); border-color: rgba(63,191,127,.45); }
+  .tag.blue { color: var(--accent-h); border-color: rgba(30,158,224,.5); }
+  .link { color: var(--accent-h); cursor: pointer; font-size: 12px; font-weight: 600; }
+  .link:hover { text-decoration: underline; }
+  .bar { height: 6px; background: #1b212b; border-radius: 2px; overflow: hidden; min-width: 90px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .cellbar { display: flex; align-items: center; gap: 10px; }
+  .cellbar span { min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* interruptor */
+  .switch { display: flex; align-items: center; gap: 9px; cursor: pointer; color: var(--text-2); font-size: 12.5px; }
+  .switch input { display: none; }
+  .switch .t { width: 34px; height: 18px; border-radius: 9px; background: #3a4455; position: relative; transition: background .15s; }
+  .switch .t::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: #c9d1dd; transition: transform .15s;
+  }
+  .switch input:checked + .t { background: var(--accent); }
+  .switch input:checked + .t::after { transform: translateX(16px); background: #fff; }
+
+  /* resolução */
+  .res { display: grid; grid-template-columns: 1fr auto; gap: 8px 18px; align-items: center; }
+  .res .val { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
+  input[type=range] { width: 100%; -webkit-appearance: none; height: 4px; border-radius: 2px; background: #3a4455; outline: none; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; border: 4px solid var(--accent); cursor: pointer;
+  }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chipbtn {
+    border: 1px solid var(--border-2); background: #222934; color: var(--text-2);
+    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;
+  }
+  .chipbtn:hover { border-color: #4a576c; }
+  .chipbtn.on { border-color: var(--accent); color: #fff; background: var(--accent-soft); }
+
+  /* opções de vegetação */
+  .opts { display: flex; flex-direction: column; }
+  .opt {
+    display: flex; align-items: center; gap: 14px; padding: 13px 16px; cursor: pointer;
+    border-bottom: 1px solid #2a323f; border-left: 3px solid transparent;
+  }
+  .opt:last-child { border-bottom: 0; }
+  .opt:hover { background: #262e3a; }
+  .opt.on { background: #26303d; border-left-color: var(--accent); }
+  .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #56637a; flex: none; display: grid; place-items: center; }
+  .opt.on .radio { border-color: var(--accent); }
+  .opt.on .radio::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .opt .t1 { font-weight: 600; font-size: 13.5px; }
+  .opt .t2 { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .opt .meta { margin-left: auto; text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .opt .meta b { display: block; color: var(--text-2); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* lista de ajustes */
+  .setting { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid #2a323f; }
+  .setting:last-child { border-bottom: 0; }
+  .setting .ico { width: 30px; height: 30px; border-radius: 4px; background: #2c3543; display: grid; place-items: center; color: var(--text-2); flex: none; }
+  .setting .t1 { font-weight: 600; }
+  .setting .t2 { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .setting .switch { margin-left: auto; }
+
+  /* barra lateral */
+  .actions { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+    border: 1px solid var(--border-2); border-radius: 3px; background: #2a3240; color: var(--text);
+    padding: 9px 12px; font-weight: 600; font-size: 13px; cursor: pointer;
+  }
+  .btn:hover { background: #313a49; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; padding: 11px 12px; font-size: 14px; }
+  .btn.primary:hover { background: var(--accent-h); }
+  .btn.danger { background: transparent; color: #f0a39b; border-color: #5a3a3a; }
+  .btn.danger:hover { background: rgba(224,87,76,.1); }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .8s linear infinite; display: none; }
+  body.busy .spin { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .srow { display: flex; align-items: center; gap: 9px; padding: 8px 16px; border-bottom: 1px solid #2a323f; font-size: 12.5px; }
+  .srow:last-child { border-bottom: 0; }
+  .srow .k { color: var(--muted); }
+  .srow .v { margin-left: auto; color: var(--text-2); font-weight: 600; }
+
+  /* registro */
+  .log { font-size: 12.5px; user-select: text; }
+  .log .l { display: flex; gap: 10px; padding: 5px 16px; border-bottom: 1px solid #262e3a; }
+  .log .l:last-child { border-bottom: 0; }
+  .log .tm { color: var(--faint); font-variant-numeric: tabular-nums; flex: none; }
+  .log .ic { width: 14px; flex: none; text-align: center; font-weight: 700; }
+  .log .ok .ic { color: var(--green); }
+  .log .warn .ic, .log .warn .msg { color: var(--yellow); }
+  .log .err .ic, .log .err .msg { color: var(--red); }
+  .log .info .ic { color: var(--muted); }
+  .log .msg { color: var(--text-2); }
+  .empty { padding: 16px; color: var(--faint); font-size: 12.5px; }
+  .scroll { max-height: 210px; overflow-y: auto; }
+
+  .banner {
+    display: none; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 3px;
+    background: rgba(226,168,58,.1); border: 1px solid rgba(226,168,58,.4); color: #ecc67a; font-size: 12.5px;
+  }
+  .banner.show { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="titlebar" id="titlebar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="#fff"><path d="M1.5 12c3.4-5.2 9.4-7 14.3-3.6L22 4.5v15l-6.2-3.9C10.9 19 4.9 17.2 1.5 12z"/><circle cx="7.6" cy="10.9" r="1.3" fill="#1e9ee0"/></svg>
+    </div>
+    <div class="brand-name">Angler Otimizador</div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-p="inicio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg>Início</button>
+    <button class="tab" data-p="graficos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="1"/><path d="M8 21h8M12 17v4"/></svg>Gráficos</button>
+    <button class="tab" data-p="vegetacao"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21v-9m0 0C12 7 8.5 3.5 3.5 3.5 3.5 8.5 7 12 12 12zm0 0c0-5 3.5-8.5 8.5-8.5C20.5 8.5 17 12 12 12z"/></svg>Vegetação</button>
+    <button class="tab" data-p="sistema"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1"/><path d="M9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/></svg>Sistema</button>
+    <button class="tab" data-p="registro"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Registro</button>
+  </div>
+  <div class="drag"></div>
+  <div class="pill" id="pillGame"><span class="dot"></span><span>—</span></div>
+  <button class="wbtn" id="wMin" title="Minimizar"><svg width="11" height="11" viewBox="0 0 11 11"><path d="M1 5.5h9" stroke="currentColor" stroke-width="1.2"/></svg></button>
+  <button class="wbtn close" id="wClose" title="Fechar"><svg width="11" height="11" viewBox="0 0 11 11"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.2"/></svg></button>
+</div>
+
+<div class="subbar">
+  <span class="crumb">Call of the Wild: The Angler</span>
+  <span id="subBuild"></span>
+  <span class="sep">|</span>
+  <span class="path" id="subPath"></span>
+</div>
+
+<div class="body">
+  <div class="main">
+
+    <!-- INÍCIO -->
+    <section class="page on" id="p-inicio">
+      <div class="banner" id="banner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        O jogo está aberto. Você pode aplicar mesmo assim: eu espero o jogo fechar e continuo sozinho.
+      </div>
+      <div class="panel">
+        <div class="pb game">
+          <div class="cover" id="cover"></div>
+          <div style="flex:1;min-width:0">
+            <h3>Call of the Wild: The Angler</h3>
+            <div class="sub">Expansive Worlds · Apex Engine</div>
+            <div class="kv">
+              <span class="k">Pasta do jogo</span><span class="v" id="kvPath">—</span>
+              <span class="k">Configurações</span><span class="v" id="kvIni">—</span>
+              <span class="k">Build da Steam</span><span class="v" id="kvBuild">—</span>
+              <span class="k">Estado</span><span class="v" id="kvRun">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Perfil de otimização</h2><span class="hint">o que será aplicado</span></div>
+        <table>
+          <thead><tr><th>Item</th><th>Escolha</th><th>Agora no jogo</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Gráficos</td><td id="pfGfx"></td><td id="pfGfxSt"></td><td class="num"><a class="link" data-go="graficos">Ajustar</a></td></tr>
+            <tr><td>Vegetação</td><td id="pfVeg"></td><td id="pfVegSt"></td><td class="num"><a class="link" data-go="vegetacao">Ajustar</a></td></tr>
+            <tr><td>Windows</td><td id="pfWin"></td><td id="pfWinSt"></td><td class="num"><a class="link" data-go="sistema">Ajustar</a></td></tr>
+            <tr><td>Prioridade</td><td id="pfPri"></td><td><span class="muted">ao abrir o jogo</span></td><td class="num"><a class="link" data-go="sistema">Ajustar</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Mapas</h2><span class="hint">objetos do sistema de vegetação por mapa</span><div class="right"><a class="link" data-go="vegetacao">Ver vegetação</a></div></div>
+        <table>
+          <thead><tr><th>Reserva</th><th>Código</th><th class="num">Tipos de objeto</th><th>Escondidos no modo escolhido</th></tr></thead>
+          <tbody id="mapsShort"><tr><td colspan="4" class="muted">Analisando os arquivos do jogo…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- GRÁFICOS -->
+    <section class="page" id="p-graficos">
+      <div class="panel">
+        <div class="ph">
+          <h2>Gráficos de desempenho</h2>
+          <div class="right"><label class="switch"><span id="gfxLabel">Ativado</span><input type="checkbox" id="optGraphics"><span class="t"></span></label></div>
+        </div>
+        <div class="pb">
+          <p class="note">Valores do <b>preset oficial mais leve</b> do jogo (tabela lida do próprio executável), com vegetação, sombras, reflexos, SSAO, névoa, desfoque e VSync desligados. A resolução interna é reconstruída pelo <b>AMD FSR 2</b>, que vem no jogo e funciona em qualquer placa. Desligado, os gráficos voltam aos valores que você tinha antes (backup automático).</p>
+        </div>
+      </div>
+
+      <div class="panel" id="resPanel">
+        <div class="ph"><h2>Resolução interna</h2><span class="hint">porcentagem da sua resolução que o jogo renderiza</span></div>
+        <div class="pb">
+          <div class="res">
+            <input type="range" id="optScale" min="50" max="100" step="1">
+            <div class="val" id="scaleVal">67%</div>
+            <div class="presets" id="presets">
+              <button class="chipbtn" data-s="50">50% · Desempenho máximo</button>
+              <button class="chipbtn" data-s="58">58% · Desempenho</button>
+              <button class="chipbtn" data-s="67">67% · Equilibrado</button>
+              <button class="chipbtn" data-s="77">77% · Qualidade</button>
+              <button class="chipbtn" data-s="100">100% · Nativa</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>O que muda</h2><span class="hint" id="gfxCount"></span></div>
+        <table>
+          <thead><tr><th>Configuração</th><th>Agora</th><th>Depois de aplicar</th></tr></thead>
+          <tbody id="gfxRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- VEGETAÇÃO -->
+    <section class="page" id="p-vegetacao">
+      <div class="panel">
+        <div class="ph"><h2>Modo de vegetação</h2><span class="hint">vale para todos os mapas, inclusive DLCs</span></div>
+        <div class="opts" id="vegOpts">
+          <div class="opt" data-v="normal"><span class="radio"></span><div><div class="t1">Normal</div><div class="t2">Vegetação original do jogo.</div></div><div class="meta"><b>0</b>escondidos</div></div>
+          <div class="opt" data-v="grama"><span class="radio"></span><div><div class="t1">Sem grama e mato</div><div class="t2">Somem grama, flores, mato, arbustos, pedras soltas e plantas d'água. As árvores ficam.</div></div><div class="meta"><b id="cntGrass">—</b>tipos de objeto</div></div>
+          <div class="opt" data-v="tudo"><span class="radio"></span><div><div class="t1">Nada (máximo FPS)</div><div class="t2">Some tudo, inclusive árvores próximas e distantes.</div></div><div class="meta"><b id="cntAll">—</b>tipos de objeto</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Mapas</h2></div>
+        <table>
+          <thead><tr><th>Reserva</th><th>Código</th><th class="num">Tipos de objeto</th><th>Escondidos neste modo</th></tr></thead>
+          <tbody id="mapsFull"></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Como funciona</h2></div>
+        <div class="pb">
+          <p class="note">O jogo carrega os pacotes <b>game0</b> a <b>gameN</b> da pasta <b>archives_win64\initial</b>, e quando o mesmo arquivo aparece em dois, vale o último. O otimizador lê os arquivos de vegetação da sua instalação, desliga as camadas escolhidas e grava tudo num pacote extra. Os pacotes originais não são tocados; as plantas continuam existindo nos dados do mapa (o multiplayer continua sincronizado), só não são desenhadas, e perdem a colisão para não sobrar obstáculo invisível.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SISTEMA -->
+    <section class="page" id="p-sistema">
+      <div class="panel">
+        <div class="ph"><h2>Ajustes do Windows</h2><span class="hint">só do seu usuário, sem administrador</span></div>
+        <div class="setting">
+          <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><path d="M6 10h4v4H6zM14 10h4M14 14h4"/></svg></div>
+          <div><div class="t1">Placa de vídeo dedicada e Game Bar</div><div class="t2">Marca o jogo para usar a GPU de alto desempenho (diferença grande em notebook) e desliga a gravação em segundo plano do Xbox Game Bar.</div></div>
+          <label class="switch"><input type="checkbox" id="optWindows"><span class="t"></span></label>
+        </div>
+        <div class="setting">
+          <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></div>
+          <div><div class="t1">Prioridade alta</div><div class="t2">Quando o jogo é aberto por aqui, o Windows dá prioridade "acima do normal" a ele.</div></div>
+          <label class="switch"><input type="checkbox" id="optPriority"><span class="t"></span></label>
+        </div>
+      </div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>Ajuste</th><th>Onde</th><th>Desfazer</th></tr></thead>
+          <tbody>
+            <tr><td>GPU de alto desempenho</td><td class="muted">Configurações › Sistema › Tela › Gráficos</td><td class="muted">Desligar acima ou "Desfazer tudo"</td></tr>
+            <tr><td>Gravação em segundo plano</td><td class="muted">Xbox Game Bar › Capturas</td><td class="muted">Desligar acima ou "Desfazer tudo"</td></tr>
+            <tr><td>Prioridade do processo</td><td class="muted">Só enquanto o jogo está aberto</td><td class="muted">Some ao fechar o jogo</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- REGISTRO -->
+    <section class="page" id="p-registro">
+      <div class="panel">
+        <div class="ph"><h2>Registro</h2><div class="right"><a class="link" id="clearLog">Limpar</a></div></div>
+        <div class="log" id="logFull"><div class="empty">Nada por aqui ainda.</div></div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="aside">
+    <div class="panel">
+      <div class="actions">
+        <button class="btn primary" id="btnPlay"><span class="spin"></span>Aplicar e jogar</button>
+        <button class="btn" id="btnApply">Só aplicar</button>
+        <button class="btn danger" id="btnUndo">Desfazer tudo</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Situação</h2></div>
+      <div class="srow"><span class="dot" id="dRun"></span><span class="k">Jogo</span><span class="v" id="sRun">—</span></div>
+      <div class="srow"><span class="dot" id="dGfx"></span><span class="k">Gráficos</span><span class="v" id="sGfx">—</span></div>
+      <div class="srow"><span class="dot" id="dVeg"></span><span class="k">Vegetação</span><span class="v" id="sVeg">—</span></div>
+      <div class="srow"><span class="dot" id="dWin"></span><span class="k">Windows</span><span class="v" id="sWin">—</span></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Atividade</h2><div class="right"><a class="link" data-go="registro">Ver tudo</a></div></div>
+      <div class="log scroll" id="logShort"><div class="empty">Escolha as opções e clique em "Aplicar e jogar".</div></div>
+    </div>
+    <div class="small muted" style="padding:0 2px;margin-top:auto"><span id="ver"></span> · <a class="link" id="lnkRepo">GitHub</a></div>
+  </aside>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const VEG_LABEL = { normal: "Normal", grama: "Sem grama e mato", tudo: "Nada (máximo FPS)" };
+let opts = null, info = null, maps = null, busy = false, logs = [];
+
+/* ---------- janela ---------- */
+$("#titlebar").addEventListener("mousedown", (e) => {
+  if (e.button === 0 && !e.target.closest("button")) win("drag");
+});
+$("#wMin").onclick = () => win("min");
+$("#wClose").onclick = () => win("close");
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+/* ---------- navegação ---------- */
+function go(p) {
+  $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.p === p));
+  $$(".page").forEach(s => s.classList.toggle("on", s.id === "p-" + p));
+  document.querySelector(".main").scrollTop = 0;
+  if (p === "graficos") loadGraphics();
+}
+$$(".tab").forEach(t => t.onclick = () => go(t.dataset.p));
+document.addEventListener("click", (e) => { const a = e.target.closest("[data-go]"); if (a) go(a.dataset.go); });
+
+/* ---------- opções ---------- */
+function save() { saveOptions(opts); renderProfile(); }
+
+function renderOptions() {
+  $("#optGraphics").checked = opts.graphics;
+  $("#gfxLabel").textContent = opts.graphics ? "Ativado" : "Desativado";
+  $("#resPanel").style.opacity = opts.graphics ? 1 : .5;
+  $("#optScale").value = opts.scale;
+  $("#scaleVal").textContent = opts.scale + "%";
+  $$("#presets .chipbtn").forEach(b => b.classList.toggle("on", +b.dataset.s === opts.scale));
+  $$("#vegOpts .opt").forEach(o => o.classList.toggle("on", o.dataset.v === opts.vegetation));
+  $("#optWindows").checked = opts.windows;
+  $("#optPriority").checked = opts.priority;
+  renderProfile();
+  renderMaps();
+}
+
+function renderProfile() {
+  $("#pfGfx").textContent = opts.graphics ? `Desempenho · resolução ${opts.scale}%` : "Originais do jogo";
+  $("#pfVeg").textContent = VEG_LABEL[opts.vegetation];
+  $("#pfWin").textContent = opts.windows ? "GPU dedicada + Game Bar desligado" : "Sem ajustes";
+  $("#pfPri").textContent = opts.priority ? "Acima do normal" : "Normal";
+}
+
+$("#optGraphics").onchange = (e) => { opts.graphics = e.target.checked; renderOptions(); save(); loadGraphics(); };
+$("#optScale").oninput = (e) => { opts.scale = +e.target.value; $("#scaleVal").textContent = opts.scale + "%"; $$("#presets .chipbtn").forEach(b => b.classList.toggle("on", +b.dataset.s === opts.scale)); };
+$("#optScale").onchange = () => { save(); loadGraphics(); };
+$$("#presets .chipbtn").forEach(b => b.onclick = () => { opts.scale = +b.dataset.s; renderOptions(); save(); loadGraphics(); });
+$$("#vegOpts .opt").forEach(o => o.onclick = () => { opts.vegetation = o.dataset.v; renderOptions(); save(); });
+$("#optWindows").onchange = (e) => { opts.windows = e.target.checked; save(); };
+$("#optPriority").onchange = (e) => { opts.priority = e.target.checked; save(); };
+
+/* ---------- gráficos ---------- */
+async function loadGraphics() {
+  const rows = await getGraphics(opts.scale);
+  const tb = $("#gfxRows");
+  tb.innerHTML = "";
+  let n = 0;
+  for (const r of rows || []) {
+    const tr = document.createElement("tr");
+    const after = opts.graphics ? r.target : r.current;
+    const changed = opts.graphics && r.changed;
+    if (changed) n++;
+    tr.innerHTML = `<td></td><td class="same"></td><td></td>`;
+    tr.children[0].textContent = r.label;
+    tr.children[1].textContent = r.current;
+    tr.children[2].textContent = after;
+    tr.children[2].className = changed ? "chg" : "same";
+    tb.appendChild(tr);
+  }
+  $("#gfxCount").textContent = opts.graphics ? `${n} de ${(rows || []).length} configurações mudam` : "desativado: nada muda (ou volta ao backup)";
+}
+
+/* ---------- mapas ---------- */
+window.onMaps = (m) => { maps = m; renderMaps(); };
+function renderMaps() {
+  if (!maps) return;
+  let grass = 0, all = 0;
+  const rows = (full) => maps.map(m => {
+    grass += m.grass; all += m.objects;
+    const hidden = opts.vegetation === "tudo" ? m.objects : opts.vegetation === "grama" ? m.grass : 0;
+    const pct = m.objects ? Math.round(hidden * 100 / m.objects) : 0;
+    return `<tr><td><div style="color:var(--text);font-weight:600">${m.name || m.world}</div><div class="muted small">${m.region || ""}</div></td><td class="muted">${m.world}</td>
+      <td class="num">${m.found ? m.objects : '<span class="muted">não instalado</span>'}</td>
+      <td><div class="cellbar"><div class="bar" style="flex:1"><i style="width:${pct}%"></i></div><span>${hidden}</span></div></td></tr>`;
+  }).join("");
+  const html = rows(true);
+  $("#mapsShort").innerHTML = html;
+  grass = 0; all = 0;
+  $("#mapsFull").innerHTML = rows(true);
+  $("#cntGrass").textContent = grass;
+  $("#cntAll").textContent = all;
+}
+
+/* ---------- status ---------- */
+function setDot(id, cls) { $(id).className = "dot " + (cls || ""); }
+async function refresh() {
+  let s;
+  try { s = await getStatus(); } catch (e) { return; }
+  const pill = $("#pillGame");
+  if (!s.gameFound) { pill.querySelector(".dot").className = "dot r"; pill.lastElementChild.textContent = "Jogo não encontrado"; }
+  else { pill.querySelector(".dot").className = "dot " + (s.gameRunning ? "y" : "g"); pill.lastElementChild.textContent = s.gameRunning ? "Jogo aberto" : "Jogo fechado"; }
+  $("#banner").classList.toggle("show", s.gameRunning && !busy);
+  $("#kvRun").textContent = !s.gameFound ? "Não encontrado" : s.gameRunning ? "Aberto" : (s.iniFound ? "Fechado" : "Abra o jogo uma vez para criar as configurações");
+
+  setDot("#dRun", !s.gameFound ? "r" : s.gameRunning ? "y" : "g");
+  $("#sRun").textContent = !s.gameFound ? "Não encontrado" : s.gameRunning ? "Aberto" : "Fechado";
+  setDot("#dGfx", s.graphicsOn ? "g" : ""); $("#sGfx").textContent = s.graphicsOn ? "Desempenho" : "Não aplicado";
+  setDot("#dVeg", s.vegInstalled ? "g" : ""); $("#sVeg").textContent = s.vegInstalled ? "Escondida" : "Original";
+  setDot("#dWin", s.windowsTweaks ? "g" : ""); $("#sWin").textContent = s.windowsTweaks ? "Ajustado" : "Padrão";
+
+  const tag = (on, a, b) => `<span class="tag ${on ? "on" : ""}">${on ? a : b}</span>`;
+  $("#pfGfxSt").innerHTML = tag(s.graphicsOn, "Aplicado", "Não aplicado");
+  $("#pfVegSt").innerHTML = tag(s.vegInstalled, "Mod instalado", "Original");
+  $("#pfWinSt").innerHTML = tag(s.windowsTweaks, "Aplicado", "Padrão");
+}
+
+/* ---------- registro ---------- */
+function time() { return new Date().toTimeString().slice(0, 8); }
+function logRow(l) {
+  const ic = { ok: "✓", warn: "!", err: "✕", info: "•" }[l.level] || "•";
+  const d = document.createElement("div");
+  d.className = "l " + l.level;
+  d.innerHTML = `<span class="tm">${l.t}</span><span class="ic">${ic}</span><span class="msg"></span>`;
+  d.lastChild.textContent = l.msg;
+  return d;
+}
+function renderLog() {
+  const full = $("#logFull"), short = $("#logShort");
+  full.innerHTML = ""; short.innerHTML = "";
+  if (!logs.length) {
+    full.innerHTML = '<div class="empty">Nada por aqui ainda.</div>';
+    short.innerHTML = '<div class="empty">Escolha as opções e clique em "Aplicar e jogar".</div>';
+    return;
+  }
+  logs.forEach(l => full.appendChild(logRow(l)));
+  logs.slice(-8).forEach(l => short.appendChild(logRow(l)));
+  short.scrollTop = short.scrollHeight;
+}
+window.onLog = ([level, msg]) => { logs.push({ level, msg, t: time() }); renderLog(); };
+$("#clearLog").onclick = () => { logs = []; renderLog(); };
+
+/* ---------- ações ---------- */
+function setBusy(b) {
+  busy = b;
+  document.body.classList.toggle("busy", b);
+  ["#btnPlay", "#btnApply", "#btnUndo"].forEach(id => $(id).disabled = b);
+}
+window.onBusy = () => setBusy(true);
+window.onDone = (ok) => {
+  setBusy(false);
+  window.onLog([ok ? "ok" : "warn", ok ? "Pronto!" : "Terminou com avisos (veja acima)."]);
+  refresh(); if ($("#p-graficos").classList.contains("on")) loadGraphics();
+};
+async function run(fn) {
+  if (busy) return;
+  setBusy(true);
+  try { await fn(); } catch (e) { window.onLog(["err", String(e)]); setBusy(false); }
+}
+$("#btnPlay").onclick = () => run(() => apply(opts, true));
+$("#btnApply").onclick = () => run(() => apply(opts, false));
+$("#btnUndo").onclick = () => run(() => undo());
+$("#lnkRepo").onclick = () => openURL(info.repo);
+
+/* ---------- início ---------- */
+(async () => {
+  info = await getInfo();
+  opts = info.options;
+  $("#ver").textContent = "Angler Otimizador v" + info.version;
+  $("#kvPath").textContent = info.gamePath || "Não encontrado";
+  $("#kvPath").title = info.gamePath || "";
+  $("#kvIni").textContent = info.iniPath || "—";
+  $("#kvIni").title = info.iniPath || "";
+  $("#kvBuild").textContent = info.build || "—";
+  $("#subBuild").textContent = info.build ? "Build " + info.build : "";
+  $("#subPath").textContent = info.gamePath || "Jogo não encontrado na Steam";
+  renderOptions();
+  refresh();
+  setInterval(refresh, 2000);
+  const m = await getMaps(); if (m) window.onMaps(m);
+  const b = await getBanner();
+  if (b) { const img = new Image(); img.src = b; img.alt = ""; $("#cover").appendChild(img); }
+})();
+</script>
+</body>
+</html>
