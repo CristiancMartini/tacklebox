@@ -44,6 +44,7 @@ Tudo vem das tabelas do próprio jogo, então cobre todas as reservas e acompanh
 Dois atalhos, que funcionam com o jogo em foco:
 
 - **Ctrl+Shift+G** abre o Tacklebox completo como overlay por cima do jogo (mapa, guia, missões, estatísticas): sem janela na barra de tarefas, levemente translúcido e arrastável pela barra de cima. Aperte de novo, clique em "Voltar ao jogo" ou clique no jogo para ele sumir.
+- **Ctrl+Shift+M** abre **só o mapa, grande**, cobrindo quase toda a tela do jogo e centrado em você. Aperte de novo, Esc ou clique no jogo para voltar.
 - **Ctrl+Shift+X** liga e desliga o **painel fixo** na lateral, que acompanha você ao vivo. Durante o jogo o mouse atravessa o painel, então ele nunca atrapalha a mira nem os cliques. Com o Tacklebox aberto (Ctrl+Shift+G), o painel fica arrastável e a posição é lembrada.
 
 O painel fixo mostra:

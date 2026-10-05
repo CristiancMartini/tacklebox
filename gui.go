@@ -56,7 +56,7 @@ func runGUI(env Env) error {
 	}
 	push := func(level, msg string) { call("onLog", []string{level, msg}) }
 	mainOverlayMu.Lock()
-	mainOverlayCb = func(on bool) { call("onOverlayMode", on) }
+	mainPageCb = call
 	mainOverlayMu.Unlock()
 
 	// overlay (janela própria, criada escondida) e o guia de peixes
@@ -195,6 +195,7 @@ func runGUI(env Env) error {
 		bad := listenHotkeys([]Hotkey{
 			{Key: 'G', Name: "Ctrl+Shift+G", Fn: func() { w.Dispatch(func() { toggleOverGame(hwnd) }) }},
 			{Key: 'X', Name: "Ctrl+Shift+X", Fn: o.toggle},
+			{Key: 'M', Name: "Ctrl+Shift+M", Fn: func() { w.Dispatch(func() { toggleMapOverGame(hwnd) }) }},
 		})
 		for _, k := range bad {
 			push("warn", "O atalho "+k+" já é usado por outro programa.")
@@ -338,10 +339,16 @@ func runGUI(env Env) error {
 		}
 	})
 
-	if *flagTesteG {
+	if *flagTesteG || *flagTesteMapa {
 		go func() {
 			time.Sleep(4 * time.Second)
-			w.Dispatch(func() { toggleOverGame(hwnd) })
+			w.Dispatch(func() {
+				if *flagTesteMapa {
+					toggleMapOverGame(hwnd)
+				} else {
+					toggleOverGame(hwnd)
+				}
+			})
 		}()
 	}
 	w.SetHtml(uiHTML)

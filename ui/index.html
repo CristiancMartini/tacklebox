@@ -342,6 +342,11 @@
   body.ovmode { border-color: var(--accent); }
   body.ovmode .wback { display: flex; }
   body.ovmode #wMin, body.ovmode #wClose { display: none; }
+  /* mapa grande (Ctrl+Shift+M): só o mapa */
+  .maptitle { display: none; align-self: center; font-size: 14px; font-weight: 600; color: var(--text-2); }
+  body.mapmode .maptitle { display: block; }
+  body.mapmode #tabs, body.mapmode .subbar, body.mapmode .aside, body.mapmode #pillGame { display: none; }
+  body.mapmode .main.full { padding: 0; }
 </style>
 </head>
 <body>
@@ -362,9 +367,10 @@
     <button class="tab" data-p="mapa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/></svg>Mapa</button>
     <button class="tab" data-p="otimizar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/></svg>Otimizar</button>
   </div>
+  <div class="maptitle">Mapa · <span id="mapTitleRes"></span></div>
   <div class="drag"></div>
   <div class="pill" id="pillGame"><span class="dot"></span><span>—</span></div>
-  <button class="wback" id="wBack" title="Some o Tacklebox e volta ao jogo">Voltar ao jogo <kbd>Ctrl+Shift+G</kbd></button>
+  <button class="wback" id="wBack" title="Some o Tacklebox e volta ao jogo (Esc)">Voltar ao jogo <kbd id="wBackKey">Ctrl+Shift+G</kbd></button>
   <button class="wbtn" id="wMin" title="Minimizar"><svg width="11" height="11" viewBox="0 0 11 11"><path d="M1 5.5h9" stroke="currentColor" stroke-width="1.2"/></svg></button>
   <button class="wbtn close" id="wClose" title="Fechar"><svg width="11" height="11" viewBox="0 0 11 11"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.2"/></svg></button>
 </div>
@@ -623,6 +629,7 @@
     <div class="panel">
       <div class="ph"><h2>No jogo</h2></div>
       <div class="srow"><kbd>Ctrl+Shift+G</kbd><span class="k">abre e fecha o Tacklebox</span></div>
+      <div class="srow"><kbd>Ctrl+Shift+M</kbd><span class="k">mapa grande sobre o jogo</span></div>
       <div class="srow"><kbd>Ctrl+Shift+X</kbd><span class="k">painel fixo (o mouse atravessa)</span></div>
     </div>
     <div class="small muted" style="padding:0 2px;margin-top:auto"><span id="ver"></span> · <a class="link" id="lnkRepo">GitHub</a></div>
@@ -663,7 +670,29 @@ $("#titlebar").addEventListener("mousedown", (e) => { if (e.button === 0 && !e.t
 $("#wMin").onclick = () => win("min");
 $("#wClose").onclick = () => win("close");
 $("#wBack").onclick = () => win("back");
-window.onOverlayMode = (on) => { document.body.classList.toggle("ovmode", on); if (on) { refresh(); drawMap(); } };
+let tabBeforeMap = "";
+window.onOverlayMode = (mode) => {
+  const b = document.body, wasMap = b.classList.contains("mapmode");
+  b.classList.toggle("ovmode", !!mode);
+  b.classList.toggle("mapmode", mode === "map");
+  $("#wBackKey").textContent = mode === "map" ? "Ctrl+Shift+M" : "Ctrl+Shift+G";
+  if (mode === "map" && !wasMap) {
+    const cur = document.querySelector(".tab.on");
+    tabBeforeMap = cur ? cur.dataset.p : "perfil";
+    $("#mReserve").value = "auto";
+    MS.follow = true;
+    MS.zoom = Math.max(MS.zoom, 0.9);
+    go("mapa");
+  } else if (mode !== "map" && wasMap && tabBeforeMap) {
+    go(tabBeforeMap);
+  }
+  const res = guide && guide.reserves.find(r => r.world === mapWorld());
+  $("#mapTitleRes").textContent = res ? res.name : "";
+  if (mode) { refresh(); drawMap(); }
+};
+window.goTab = (t) => go(t);
+// Esc fecha o overlay e volta ao jogo
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("ovmode")) win("back"); });
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 function go(p) {
   $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.p === p));
