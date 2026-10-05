@@ -1,4 +1,4 @@
-module github.com/CristiancMartini/angler-otimizador
+module github.com/CristiancMartini/tacklebox
 
 go 1.26.5
 

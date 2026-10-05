@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Angler Otimizador</title>
+<title>Tacklebox</title>
 <style>
   :root {
     --title: #12161e;
@@ -10,7 +10,7 @@
     --bar: #161b23;
     --panel: #232a35;
     --panel-2: #29313e;
-    --row: #2d3644;
+    --line: #2a323f;
     --border: #323c4b;
     --border-2: #3b4658;
     --text: #e3e8ef;
@@ -23,168 +23,172 @@
     --green: #3fbf7f;
     --red: #e0574c;
     --yellow: #e2a83a;
+    --r0: #8a94a3; --r1: #c58a5a; --r2: #b9c4cf; --r3: #e4b53c; --r4: #6fd3f2; --r5: #c38bff;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
-    color: var(--text); background: var(--bg);
-    border: 1px solid #0b0e13;
-    display: flex; flex-direction: column; overflow: hidden;
+    font: 13px/1.4 "Segoe UI", system-ui, sans-serif; color: var(--text); background: var(--bg);
+    border: 1px solid #0b0e13; display: flex; flex-direction: column; overflow: hidden;
     user-select: none; -webkit-font-smoothing: antialiased;
   }
   svg { flex: none; }
-  button { font: inherit; color: inherit; }
+  button, select, input { font: inherit; color: inherit; }
   button:focus { outline: none; }
   button:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+  .num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
 
-  /* ---------- barra de título ---------- */
-  .titlebar {
-    height: 46px; flex: none; display: flex; align-items: stretch;
-    background: var(--title); border-bottom: 1px solid #0c0f15;
-  }
-  .brand { display: flex; align-items: center; gap: 9px; padding: 0 18px 0 14px; }
-  .brand-mark {
-    width: 26px; height: 26px; border-radius: 6px; background: var(--accent);
-    display: grid; place-items: center;
-  }
-  .brand-name { font-size: 15px; font-weight: 600; letter-spacing: .1px; }
+  /* barra de título */
+  .titlebar { height: 46px; flex: none; display: flex; align-items: stretch; background: var(--title); border-bottom: 1px solid #0c0f15; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 0 20px 0 14px; }
+  .brand-mark { width: 26px; height: 26px; border-radius: 6px; background: var(--accent); display: grid; place-items: center; }
+  .brand-name { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
   .tabs { display: flex; }
   .tab {
-    display: flex; align-items: center; gap: 8px; padding: 0 16px;
-    border: 0; background: transparent; color: var(--muted); cursor: pointer;
-    font-size: 13.5px; font-weight: 600; border-bottom: 2px solid transparent; border-top: 2px solid transparent;
+    display: flex; align-items: center; gap: 8px; padding: 0 15px; border: 0; background: transparent;
+    color: var(--muted); cursor: pointer; font-size: 13.5px; font-weight: 600;
+    border-top: 2px solid transparent; border-bottom: 2px solid transparent;
   }
   .tab:hover { color: var(--text-2); background: #181d26; }
   .tab.on { color: var(--text); background: var(--bg); border-bottom-color: var(--accent); }
-  .tab svg { opacity: .9; }
   .drag { flex: 1; }
-  .pill {
-    align-self: center; display: flex; align-items: center; gap: 7px;
-    padding: 4px 10px; margin-right: 10px; border-radius: 4px;
-    background: #1b212b; border: 1px solid #262e3a; color: var(--text-2); font-size: 12px;
-  }
+  .pill { align-self: center; display: flex; align-items: center; gap: 7px; padding: 4px 10px; margin-right: 10px;
+          border-radius: 4px; background: #1b212b; border: 1px solid #262e3a; color: var(--text-2); font-size: 12px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
-  .dot.g { background: var(--green); }
-  .dot.y { background: var(--yellow); }
-  .dot.r { background: var(--red); }
-  .wbtn {
-    width: 46px; border: 0; background: transparent; color: var(--muted); cursor: pointer;
-    display: grid; place-items: center;
-  }
+  .dot.g { background: var(--green); } .dot.y { background: var(--yellow); } .dot.r { background: var(--red); }
+  .wbtn { width: 46px; border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
   .wbtn:hover { background: #1e2530; color: var(--text); }
   .wbtn.close:hover { background: #c42b1c; color: #fff; }
 
-  /* ---------- sub-barra ---------- */
-  .subbar {
-    height: 38px; flex: none; display: flex; align-items: center; gap: 14px;
-    padding: 0 18px; background: var(--bar); border-bottom: 1px solid #10141b;
-    color: var(--muted); font-size: 12.5px;
-  }
+  .subbar { height: 38px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 18px;
+            background: var(--bar); border-bottom: 1px solid #10141b; color: var(--muted); font-size: 12.5px; }
   .crumb { padding: 3px 9px; border-radius: 3px; background: #1f2630; color: var(--text-2); }
-  .subbar .sep { color: var(--faint); }
-  .subbar .path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 520px; }
+  .live { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+  .live .dot.g { animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
 
-  /* ---------- corpo ---------- */
+  /* corpo */
   .body { flex: 1; min-height: 0; display: flex; }
-  .main { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 18px 22px; }
-  .aside {
-    width: 300px; flex: none; overflow-y: auto; padding: 18px 18px 18px 0;
-    display: flex; flex-direction: column; gap: 14px;
-  }
+  .main { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 18px 24px; }
+  .aside { width: 290px; flex: none; overflow-y: auto; padding: 18px 18px 18px 0; display: flex; flex-direction: column; gap: 14px; }
   .main::-webkit-scrollbar, .aside::-webkit-scrollbar, .scroll::-webkit-scrollbar { width: 9px; }
-  .main::-webkit-scrollbar-thumb, .aside::-webkit-scrollbar-thumb, .scroll::-webkit-scrollbar-thumb {
-    background: #353f4f; border-radius: 9px; border: 2px solid var(--bg);
-  }
+  .main::-webkit-scrollbar-thumb, .aside::-webkit-scrollbar-thumb, .scroll::-webkit-scrollbar-thumb { background: #353f4f; border-radius: 9px; border: 2px solid var(--bg); }
   .page { display: none; flex-direction: column; gap: 14px; }
   .page.on { display: flex; }
+  .grid2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; }
-  .ph {
-    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-  }
+  .ph { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--border); min-height: 44px; }
   .ph h2 { margin: 0; font-size: 14px; font-weight: 600; }
   .ph .hint { color: var(--muted); font-size: 12px; }
   .ph .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
   .pb { padding: 14px 16px; }
-  .muted { color: var(--muted); }
-  .small { font-size: 12px; }
   .note { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0; }
   .note b { color: var(--text-2); font-weight: 600; }
-
-  /* jogo */
-  .game { display: flex; gap: 16px; }
-  .cover {
-    width: 118px; height: 176px; flex: none; border-radius: 3px; overflow: hidden;
-    background: #1b212b; border: 1px solid var(--border-2);
-  }
-  .cover img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 8%; display: block; }
-  .game h3 { margin: 2px 0 2px; font-size: 19px; font-weight: 600; }
-  .game .sub { color: var(--muted); margin-bottom: 12px; }
-  .kv { display: grid; grid-template-columns: 128px 1fr; row-gap: 7px; column-gap: 12px; font-size: 12.5px; }
-  .kv .k { color: var(--muted); }
-  .kv .v { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+  .empty { padding: 18px 16px; color: var(--faint); font-size: 12.5px; }
+  .link { color: var(--accent-h); cursor: pointer; font-size: 12px; font-weight: 600; }
+  .link:hover { text-decoration: underline; }
 
   /* tabelas */
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  th {
-    text-align: left; font-weight: 600; color: var(--muted); font-size: 12px;
-    padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel-2);
-    position: sticky; top: 0;
-  }
-  td { padding: 8px 16px; border-bottom: 1px solid #2a323f; color: var(--text-2); }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 8px 14px;
+       border-bottom: 1px solid var(--border); background: var(--panel-2); position: sticky; top: 0; white-space: nowrap; }
+  td { padding: 8px 14px; border-bottom: 1px solid var(--line); color: var(--text-2); white-space: nowrap; }
   tr:last-child td { border-bottom: 0; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .arrow { color: var(--faint); padding: 0 6px; }
-  .chg { color: var(--accent-h); font-weight: 600; }
-  .same { color: var(--muted); }
-  .tag {
-    display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 11.5px; font-weight: 600;
-    border: 1px solid var(--border-2); color: var(--muted);
-  }
-  .tag.on { color: var(--green); border-color: rgba(63,191,127,.45); }
-  .tag.blue { color: var(--accent-h); border-color: rgba(30,158,224,.5); }
-  .link { color: var(--accent-h); cursor: pointer; font-size: 12px; font-weight: 600; }
-  .link:hover { text-decoration: underline; }
-  .bar { height: 6px; background: #1b212b; border-radius: 2px; overflow: hidden; min-width: 90px; }
-  .bar i { display: block; height: 100%; background: var(--accent); }
-  .cellbar { display: flex; align-items: center; gap: 10px; }
-  .cellbar span { min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:hover td { background: #262e3a; }
+  .strong { color: var(--text); font-weight: 600; }
+  .sub2 { color: var(--muted); font-size: 11.5px; }
 
-  /* interruptor */
+  /* troféus */
+  .rank { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+  .rank i { width: 9px; height: 9px; border-radius: 2px; transform: rotate(45deg); display: block; }
+  .rk0 { color: var(--r0); } .rk0 i { background: var(--r0); }
+  .rk1 { color: var(--r1); } .rk1 i { background: var(--r1); }
+  .rk2 { color: var(--r2); } .rk2 i { background: var(--r2); }
+  .rk3 { color: var(--r3); } .rk3 i { background: var(--r3); }
+  .rk4 { color: var(--r4); } .rk4 i { background: var(--r4); }
+  .rk5 { color: var(--r5); } .rk5 i { background: var(--r5); }
+  .rankbar { display: flex; height: 6px; width: 110px; border-radius: 2px; overflow: hidden; background: #1b212b; }
+  .rankbar span { display: block; height: 100%; }
+
+  /* perfil */
+  .profile { display: flex; align-items: center; gap: 18px; padding: 16px 18px; }
+  .avatar { width: 76px; height: 76px; border-radius: 4px; overflow: hidden; background: #1b212b; border: 1px solid var(--border-2); flex: none; display: grid; place-items: center; color: var(--faint); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .who { flex: 1; min-width: 0; }
+  .pname { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 600; }
+  .lvl { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 3px; background: var(--accent-soft); color: var(--accent-h); border: 1px solid rgba(30,158,224,.45); }
+  .xp { margin-top: 9px; max-width: 420px; }
+  .xpbar { height: 6px; border-radius: 3px; background: #1b212b; overflow: hidden; }
+  .xpbar i { display: block; height: 100%; background: var(--accent); }
+  .xp .small { margin-top: 5px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 104px); gap: 8px; }
+  .kpi { background: #1e2530; border: 1px solid var(--border); border-radius: 4px; padding: 9px 11px; }
+  .kpi b { display: block; font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi span { color: var(--muted); font-size: 11.5px; }
+
+  .statlist { display: grid; grid-template-columns: 1fr 1fr; }
+  .stat { display: flex; justify-content: space-between; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .stat:nth-child(odd) { border-right: 1px solid var(--line); }
+  .stat .k { color: var(--muted); }
+  .stat .v { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .catch { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .catch:last-child { border-bottom: 0; }
+  .fishico { width: 34px; height: 34px; border-radius: 4px; background: #2c3543; display: grid; place-items: center; flex: none; }
+  .catch .t1 { font-weight: 600; color: var(--text); }
+  .catch .meta { margin-left: auto; text-align: right; }
+  .catch .meta b { display: block; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+
+  .resrow { display: grid; grid-template-columns: 1fr 120px 70px; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .resrow:last-child { border-bottom: 0; }
+  .bar { height: 6px; background: #1b212b; border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+
+  /* filtros */
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .toolbar .grow { flex: 1; }
+  select, .search {
+    background: #1e2530; border: 1px solid var(--border-2); border-radius: 3px; padding: 6px 9px; font-size: 12.5px; outline: none;
+  }
+  select:focus, .search:focus { border-color: var(--accent); }
+  .search { width: 200px; user-select: text; }
+  .count { color: var(--muted); font-size: 12px; }
+
+  /* reservas */
+  .rgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+  .tile { padding: 11px 14px; border-right: 1px solid var(--line); }
+  .tile:last-child { border-right: 0; }
+  .tile b { display: block; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--muted); font-size: 11.5px; }
+  .rep { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .rep .bar { width: 90px; }
+
+  /* otimizar */
+  .subnav { display: flex; gap: 6px; align-items: center; }
+  .chipbtn { border: 1px solid var(--border-2); background: #222934; color: var(--text-2); padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 12.5px; font-weight: 600; }
+  .chipbtn:hover { border-color: #4a576c; }
+  .chipbtn.on { border-color: var(--accent); color: #fff; background: var(--accent-soft); }
+  .sect { display: none; flex-direction: column; gap: 14px; }
+  .sect.on { display: flex; }
   .switch { display: flex; align-items: center; gap: 9px; cursor: pointer; color: var(--text-2); font-size: 12.5px; }
   .switch input { display: none; }
   .switch .t { width: 34px; height: 18px; border-radius: 9px; background: #3a4455; position: relative; transition: background .15s; }
-  .switch .t::after {
-    content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
-    background: #c9d1dd; transition: transform .15s;
-  }
+  .switch .t::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #c9d1dd; transition: transform .15s; }
   .switch input:checked + .t { background: var(--accent); }
   .switch input:checked + .t::after { transform: translateX(16px); background: #fff; }
-
-  /* resolução */
-  .res { display: grid; grid-template-columns: 1fr auto; gap: 8px 18px; align-items: center; }
+  .res { display: grid; grid-template-columns: 1fr auto; gap: 10px 18px; align-items: center; }
   .res .val { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
   input[type=range] { width: 100%; -webkit-appearance: none; height: 4px; border-radius: 2px; background: #3a4455; outline: none; }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
-    background: #fff; border: 4px solid var(--accent); cursor: pointer;
-  }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 4px solid var(--accent); cursor: pointer; }
   .presets { display: flex; gap: 6px; flex-wrap: wrap; }
-  .chipbtn {
-    border: 1px solid var(--border-2); background: #222934; color: var(--text-2);
-    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;
-  }
-  .chipbtn:hover { border-color: #4a576c; }
-  .chipbtn.on { border-color: var(--accent); color: #fff; background: var(--accent-soft); }
-
-  /* opções de vegetação */
-  .opts { display: flex; flex-direction: column; }
-  .opt {
-    display: flex; align-items: center; gap: 14px; padding: 13px 16px; cursor: pointer;
-    border-bottom: 1px solid #2a323f; border-left: 3px solid transparent;
-  }
+  .chg { color: var(--accent-h); font-weight: 600; }
+  .same { color: var(--muted); }
+  .opt { display: flex; align-items: center; gap: 14px; padding: 13px 16px; cursor: pointer; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; }
   .opt:last-child { border-bottom: 0; }
   .opt:hover { background: #262e3a; }
   .opt.on { background: #26303d; border-left-color: var(--accent); }
@@ -194,10 +198,8 @@
   .opt .t1 { font-weight: 600; font-size: 13.5px; }
   .opt .t2 { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
   .opt .meta { margin-left: auto; text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap; }
-  .opt .meta b { display: block; color: var(--text-2); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-
-  /* lista de ajustes */
-  .setting { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid #2a323f; }
+  .opt .meta b { display: block; color: var(--text-2); font-size: 15px; font-weight: 600; }
+  .setting { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
   .setting:last-child { border-bottom: 0; }
   .setting .ico { width: 30px; height: 30px; border-radius: 4px; background: #2c3543; display: grid; place-items: center; color: var(--text-2); flex: none; }
   .setting .t1 { font-weight: 600; }
@@ -205,27 +207,30 @@
   .setting .switch { margin-left: auto; }
 
   /* barra lateral */
-  .actions { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
-  .btn {
-    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
-    border: 1px solid var(--border-2); border-radius: 3px; background: #2a3240; color: var(--text);
-    padding: 9px 12px; font-weight: 600; font-size: 13px; cursor: pointer;
-  }
+  .play { overflow: hidden; }
+  .play .art { height: 132px; background: #1b212b center 18% / cover no-repeat; position: relative; }
+  .play .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(35,42,53,0) 40%, var(--panel) 100%); }
+  .play .in { padding: 0 16px 14px; margin-top: -26px; position: relative; z-index: 1; }
+  .play .gname { font-weight: 600; font-size: 14px; }
+  .play .gsub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 1px solid var(--border-2);
+         border-radius: 3px; background: #2a3240; color: var(--text); padding: 9px 12px; font-weight: 600; font-size: 13px; cursor: pointer; }
   .btn:hover { background: #313a49; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; padding: 11px 12px; font-size: 14px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; padding: 12px; font-size: 15px; letter-spacing: .6px; }
   .btn.primary:hover { background: var(--accent-h); }
   .btn.danger { background: transparent; color: #f0a39b; border-color: #5a3a3a; }
   .btn.danger:hover { background: rgba(224,87,76,.1); }
   .btn[disabled] { opacity: .45; pointer-events: none; }
+  .btnrow { display: flex; gap: 8px; }
+  .btnrow .btn { width: auto; }
   .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .8s linear infinite; display: none; }
   body.busy .spin { display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .srow { display: flex; align-items: center; gap: 9px; padding: 8px 16px; border-bottom: 1px solid #2a323f; font-size: 12.5px; }
+  .caption { color: var(--muted); font-size: 11.5px; margin-top: 7px; text-align: center; }
+  .srow { display: flex; align-items: center; gap: 9px; padding: 8px 16px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
   .srow:last-child { border-bottom: 0; }
   .srow .k { color: var(--muted); }
   .srow .v { margin-left: auto; color: var(--text-2); font-weight: 600; }
-
-  /* registro */
   .log { font-size: 12.5px; user-select: text; }
   .log .l { display: flex; gap: 10px; padding: 5px 16px; border-bottom: 1px solid #262e3a; }
   .log .l:last-child { border-bottom: 0; }
@@ -235,15 +240,62 @@
   .log .warn .ic, .log .warn .msg { color: var(--yellow); }
   .log .err .ic, .log .err .msg { color: var(--red); }
   .log .info .ic { color: var(--muted); }
-  .log .msg { color: var(--text-2); }
-  .empty { padding: 16px; color: var(--faint); font-size: 12.5px; }
-  .scroll { max-height: 210px; overflow-y: auto; }
-
-  .banner {
-    display: none; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 3px;
-    background: rgba(226,168,58,.1); border: 1px solid rgba(226,168,58,.4); color: #ecc67a; font-size: 12.5px;
-  }
+  .log .msg { color: var(--text-2); white-space: normal; }
+  .scroll { max-height: 200px; overflow-y: auto; }
+  .banner { display: none; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 3px; background: rgba(226,168,58,.1); border: 1px solid rgba(226,168,58,.4); color: #ecc67a; font-size: 12.5px; }
   .banner.show { display: flex; }
+
+  #p-especies th, #p-especies td, #p-capturas th, #p-capturas td { padding-left: 10px; padding-right: 10px; }
+  #p-especies .rankbar { width: 84px; }
+
+  /* guia */
+  .guide { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: start; }
+  .glist { position: sticky; top: 0; max-height: calc(100vh - 210px); overflow-y: auto; }
+  .glist::-webkit-scrollbar { width: 9px; }
+  .glist::-webkit-scrollbar-thumb { background: #353f4f; border-radius: 9px; border: 2px solid var(--panel); }
+  .gsep { padding: 7px 14px; font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--panel-2); border-bottom: 1px solid var(--line); text-transform: uppercase; letter-spacing: .5px; }
+  .frow { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; border-left: 3px solid transparent; }
+  .frow:hover { background: #262e3a; }
+  .frow.on { background: #26303d; border-left-color: var(--accent); }
+  .frow .fishico { width: 30px; height: 30px; }
+  .frow .fishico.no { background: #222935; border: 1px dashed #3a4558; }
+  .frow .t1 { font-weight: 600; color: var(--text); }
+  .frow .grow { flex: 1; min-width: 0; }
+  .frow .sub2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .when { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
+  .when.dia { color: #e9c46a; } .when.noite { color: #9db4ff; }
+  .gsec { padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  .gsec:last-child { border-bottom: 0; }
+  .gsec h3 { margin: 0 0 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 3px; background: #1e2530; border: 1px solid var(--border-2); color: var(--text-2); font-size: 12.5px; }
+  .chip small { color: var(--muted); font-size: 11px; }
+  .chip.fav { border-color: rgba(49,174,238,.65); background: var(--accent-soft); color: #fff; }
+  .chip.fav small { color: #9fd3f1; }
+  .chip.weak { color: var(--muted); border-color: var(--border); background: transparent; }
+  .tier { display: grid; grid-template-columns: 86px 1fr; gap: 10px; align-items: start; padding: 3px 0; }
+  .tier + .tier { margin-top: 6px; }
+  .tier > span { color: var(--muted); font-size: 12px; padding-top: 4px; }
+  .lrow { display: grid; grid-template-columns: 120px 1fr 74px; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .lrow:last-child { border-bottom: 0; }
+  .lrow .strong { font-size: 13px; }
+  .pref { font-size: 11.5px; font-weight: 600; text-align: right; }
+  .pref.p0 { color: var(--accent-h); } .pref.p1 { color: var(--text-2); } .pref.p2 { color: var(--faint); }
+  .medals { display: flex; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
+  .medals div { flex: 1; padding: 7px 8px; background: #1e2530; border-right: 1px solid var(--border); }
+  .medals div:last-child { border-right: 0; }
+  .medals b { display: block; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--text); }
+  .trait { display: grid; grid-template-columns: 130px 1fr; gap: 12px; padding: 5px 0; font-size: 12.5px; }
+  .trait b { color: var(--text); font-weight: 600; }
+  .trait span { color: var(--muted); }
+  .ghead { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .ghead h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .ghead .right { margin-left: auto; text-align: right; font-size: 12.5px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 3px; border: 1px solid; }
+  .tag.leg { color: var(--r5); border-color: rgba(195,139,255,.5); background: rgba(195,139,255,.1); }
+  kbd { font: 600 11px "Segoe UI", sans-serif; padding: 1px 6px; border-radius: 3px; background: #1b212b; border: 1px solid var(--border-2); color: var(--text-2); }
+  .credit { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+  .credit p { margin: 0; flex: 1; }
 </style>
 </head>
 <body>
@@ -251,16 +303,17 @@
 <div class="titlebar" id="titlebar">
   <div class="brand">
     <div class="brand-mark">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="#fff"><path d="M1.5 12c3.4-5.2 9.4-7 14.3-3.6L22 4.5v15l-6.2-3.9C10.9 19 4.9 17.2 1.5 12z"/><circle cx="7.6" cy="10.9" r="1.3" fill="#1e9ee0"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><path d="M3 9h18v11H3zM8 9V5h8v4M3 13h18M11 13v3h2v-3"/></svg>
     </div>
-    <div class="brand-name">Angler Otimizador</div>
+    <div class="brand-name">Tacklebox</div>
   </div>
   <div class="tabs" id="tabs">
-    <button class="tab on" data-p="inicio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg>Início</button>
-    <button class="tab" data-p="graficos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="1"/><path d="M8 21h8M12 17v4"/></svg>Gráficos</button>
-    <button class="tab" data-p="vegetacao"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21v-9m0 0C12 7 8.5 3.5 3.5 3.5 3.5 8.5 7 12 12 12zm0 0c0-5 3.5-8.5 8.5-8.5C20.5 8.5 17 12 12 12z"/></svg>Vegetação</button>
-    <button class="tab" data-p="sistema"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1"/><path d="M9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/></svg>Sistema</button>
-    <button class="tab" data-p="registro"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Registro</button>
+    <button class="tab on" data-p="perfil"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>Perfil</button>
+    <button class="tab" data-p="especies"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c3.5-5 9-6.5 13.5-3.5L21 5v14l-5.5-3.5C11 18.5 5.5 17 2 12z"/></svg>Espécies</button>
+    <button class="tab" data-p="capturas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Capturas</button>
+    <button class="tab" data-p="reservas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14m6-12v14"/></svg>Reservas</button>
+    <button class="tab" data-p="guia"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20v-5M9 7h7M9 11h5"/></svg>Guia</button>
+    <button class="tab" data-p="otimizar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/></svg>Otimizar</button>
   </div>
   <div class="drag"></div>
   <div class="pill" id="pillGame"><span class="dot"></span><span>—</span></div>
@@ -271,176 +324,227 @@
 <div class="subbar">
   <span class="crumb">Call of the Wild: The Angler</span>
   <span id="subBuild"></span>
-  <span class="sep">|</span>
-  <span class="path" id="subPath"></span>
+  <span class="live" id="live"><span class="dot"></span><span>Lendo o save…</span></span>
 </div>
 
 <div class="body">
   <div class="main">
 
-    <!-- INÍCIO -->
-    <section class="page on" id="p-inicio">
+    <!-- PERFIL -->
+    <section class="page on" id="p-perfil">
+      <div class="panel profile">
+        <div class="avatar" id="avatar"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+        <div class="who">
+          <div class="pname"><span id="pName">Pescador</span><span class="lvl" id="pLevel">Nível —</span></div>
+          <div class="xp"><div class="xpbar"><i id="pXpBar" style="width:0"></i></div><div class="small muted" id="pXpText">—</div></div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><b id="kMoney">—</b><span>Dinheiro</span></div>
+          <div class="kpi"><b id="kCaught">—</b><span>Peixes pegos</span></div>
+          <div class="kpi"><b id="kSpecies">—</b><span>Espécies</span></div>
+          <div class="kpi"><b id="kLegend">—</b><span>Lendários</span></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="col">
+          <div class="panel">
+            <div class="ph"><h2>Visão geral</h2><span class="hint">todas as reservas</span></div>
+            <div class="statlist" id="overview"></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><h2>Reservas</h2><div class="right"><a class="link" data-go="reservas">Ver detalhes</a></div></div>
+            <div id="resList"><div class="empty">—</div></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="panel">
+            <div class="ph"><h2>Melhores capturas</h2><span class="hint">por TruScore</span></div>
+            <div id="bestList"><div class="empty">—</div></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><h2>Últimas capturas</h2><div class="right"><a class="link" data-go="capturas">Ver diário</a></div></div>
+            <div id="lastList"><div class="empty">—</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ESPÉCIES -->
+    <section class="page" id="p-especies">
+      <div class="panel">
+        <div class="ph"><h2>Recordes por espécie</h2><span class="hint" id="spCount"></span></div>
+        <div class="toolbar">
+          <select id="spReserve"></select>
+          <input class="search" id="spSearch" placeholder="Buscar espécie…">
+          <div class="grow"></div>
+          <span class="count">Ordenar</span>
+          <select id="spSort">
+            <option value="caught">Mais pegos</option>
+            <option value="weight">Maior peso</option>
+            <option value="score">Maior TruScore</option>
+            <option value="rank">Melhor troféu</option>
+            <option value="name">Nome</option>
+          </select>
+        </div>
+        <table>
+          <thead><tr><th>Espécie</th><th class="num">Pegos</th><th class="num">Fugiram</th><th class="num">Recorde</th><th class="num">Tamanho</th><th class="num">TruScore</th><th>Troféu</th><th>Troféus</th><th class="num">Dia / noite</th><th class="num">Peso total</th></tr></thead>
+          <tbody id="spRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CAPTURAS -->
+    <section class="page" id="p-capturas">
+      <div class="panel">
+        <div class="ph"><h2>Diário de capturas</h2><span class="hint">as mais recentes de cada reserva, guardadas pelo jogo</span></div>
+        <div class="toolbar"><select id="caReserve"></select><div class="grow"></div><span class="count" id="caCount"></span></div>
+        <table>
+          <thead><tr><th>Quando</th><th>Espécie</th><th class="num">Peso</th><th class="num">Comprimento</th><th>Troféu</th><th class="num">TruScore</th><th class="num">Briga</th><th class="num">Hora no jogo</th><th class="num">Água</th></tr></thead>
+          <tbody id="caRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RESERVAS -->
+    <section class="page" id="p-reservas">
+      <div class="rgrid" id="resGrid"><div class="empty">—</div></div>
+    </section>
+
+    <!-- GUIA -->
+    <section class="page" id="p-guia">
+      <div class="panel">
+        <div class="toolbar">
+          <select id="gReserve"></select>
+          <input class="search" id="gSearch" placeholder="Buscar peixe ou isca…">
+          <label class="switch"><input type="checkbox" id="gMissing"><span class="t"></span>Só os que faltam</label>
+          <div class="grow"></div>
+          <button class="btn" id="btnOverlay" style="width:auto;padding:6px 12px">Abrir overlay <kbd>Ctrl+Shift+G</kbd></button>
+        </div>
+      </div>
+      <div class="guide">
+        <div class="panel glist" id="gList"><div class="empty">Lendo as tabelas do jogo…</div></div>
+        <div class="col">
+          <div class="panel" id="gDetail"><div class="empty">—</div></div>
+          <div class="panel credit">
+            <p class="note">Tudo aqui vem dos arquivos do próprio jogo, para todas as reservas. Para pontos de pesca e recordes da comunidade, veja a <b>Golden Ridge Reserve Help Sheet</b> do #ResourceHub do Discord oficial (tabela de iscas por Wilson).</p>
+            <a class="link" id="lnkSheet">Abrir planilha</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OTIMIZAR -->
+    <section class="page" id="p-otimizar">
       <div class="banner" id="banner">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-        O jogo está aberto. Você pode aplicar mesmo assim: eu espero o jogo fechar e continuo sozinho.
+        O jogo está aberto. Pode aplicar mesmo assim: eu espero o jogo fechar e continuo sozinho.
       </div>
-      <div class="panel">
-        <div class="pb game">
-          <div class="cover" id="cover"></div>
-          <div style="flex:1;min-width:0">
-            <h3>Call of the Wild: The Angler</h3>
-            <div class="sub">Expansive Worlds · Apex Engine</div>
-            <div class="kv">
-              <span class="k">Pasta do jogo</span><span class="v" id="kvPath">—</span>
-              <span class="k">Configurações</span><span class="v" id="kvIni">—</span>
-              <span class="k">Build da Steam</span><span class="v" id="kvBuild">—</span>
-              <span class="k">Estado</span><span class="v" id="kvRun">—</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="ph"><h2>Perfil de otimização</h2><span class="hint">o que será aplicado</span></div>
-        <table>
-          <thead><tr><th>Item</th><th>Escolha</th><th>Agora no jogo</th><th></th></tr></thead>
-          <tbody>
-            <tr><td>Gráficos</td><td id="pfGfx"></td><td id="pfGfxSt"></td><td class="num"><a class="link" data-go="graficos">Ajustar</a></td></tr>
-            <tr><td>Vegetação</td><td id="pfVeg"></td><td id="pfVegSt"></td><td class="num"><a class="link" data-go="vegetacao">Ajustar</a></td></tr>
-            <tr><td>Windows</td><td id="pfWin"></td><td id="pfWinSt"></td><td class="num"><a class="link" data-go="sistema">Ajustar</a></td></tr>
-            <tr><td>Prioridade</td><td id="pfPri"></td><td><span class="muted">ao abrir o jogo</span></td><td class="num"><a class="link" data-go="sistema">Ajustar</a></td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="panel">
-        <div class="ph"><h2>Mapas</h2><span class="hint">objetos do sistema de vegetação por mapa</span><div class="right"><a class="link" data-go="vegetacao">Ver vegetação</a></div></div>
-        <table>
-          <thead><tr><th>Reserva</th><th>Código</th><th class="num">Tipos de objeto</th><th>Escondidos no modo escolhido</th></tr></thead>
-          <tbody id="mapsShort"><tr><td colspan="4" class="muted">Analisando os arquivos do jogo…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- GRÁFICOS -->
-    <section class="page" id="p-graficos">
       <div class="panel">
         <div class="ph">
-          <h2>Gráficos de desempenho</h2>
-          <div class="right"><label class="switch"><span id="gfxLabel">Ativado</span><input type="checkbox" id="optGraphics"><span class="t"></span></label></div>
+          <div class="subnav" id="subnav">
+            <button class="chipbtn on" data-s="graficos">Gráficos</button>
+            <button class="chipbtn" data-s="vegetacao">Vegetação</button>
+            <button class="chipbtn" data-s="sistema">Sistema</button>
+            <button class="chipbtn" data-s="registro">Registro</button>
+          </div>
+          <div class="right btnrow">
+            <button class="btn" id="btnApply">Aplicar agora</button>
+            <button class="btn danger" id="btnUndo">Desfazer tudo</button>
+          </div>
         </div>
-        <div class="pb">
-          <p class="note">Valores do <b>preset oficial mais leve</b> do jogo (tabela lida do próprio executável), com vegetação, sombras, reflexos, SSAO, névoa, desfoque e VSync desligados. A resolução interna é reconstruída pelo <b>AMD FSR 2</b>, que vem no jogo e funciona em qualquer placa. Desligado, os gráficos voltam aos valores que você tinha antes (backup automático).</p>
+        <div class="pb"><p class="note">As escolhas abaixo ficam salvas e são aplicadas quando você clica em <b>Jogar</b>. Tudo é reversível em "Desfazer tudo".</p></div>
+      </div>
+
+      <div class="sect on" id="s-graficos">
+        <div class="panel">
+          <div class="ph"><h2>Gráficos de desempenho</h2><div class="right"><label class="switch"><span id="gfxLabel">Ativado</span><input type="checkbox" id="optGraphics"><span class="t"></span></label></div></div>
+          <div class="pb"><p class="note">Valores do <b>preset oficial mais leve</b> do jogo (tabela lida do próprio executável), com vegetação, sombras, reflexos, SSAO, névoa, desfoque e VSync desligados. A resolução interna é reconstruída pelo <b>AMD FSR 2</b>, que vem no jogo e funciona em qualquer placa. Desativado, os gráficos voltam aos valores que você tinha antes (backup automático).</p></div>
+        </div>
+        <div class="panel" id="resPanel">
+          <div class="ph"><h2>Resolução interna</h2><span class="hint">porcentagem da sua resolução que o jogo renderiza</span></div>
+          <div class="pb">
+            <div class="res">
+              <input type="range" id="optScale" min="50" max="100" step="1">
+              <div class="val" id="scaleVal">67%</div>
+              <div class="presets" id="presets">
+                <button class="chipbtn" data-v="50">50% · Desempenho máximo</button>
+                <button class="chipbtn" data-v="58">58% · Desempenho</button>
+                <button class="chipbtn" data-v="67">67% · Equilibrado</button>
+                <button class="chipbtn" data-v="77">77% · Qualidade</button>
+                <button class="chipbtn" data-v="100">100% · Nativa</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>O que muda</h2><span class="hint" id="gfxCount"></span></div>
+          <table><thead><tr><th>Configuração</th><th>Agora</th><th>Depois de aplicar</th></tr></thead><tbody id="gfxRows"></tbody></table>
         </div>
       </div>
 
-      <div class="panel" id="resPanel">
-        <div class="ph"><h2>Resolução interna</h2><span class="hint">porcentagem da sua resolução que o jogo renderiza</span></div>
-        <div class="pb">
-          <div class="res">
-            <input type="range" id="optScale" min="50" max="100" step="1">
-            <div class="val" id="scaleVal">67%</div>
-            <div class="presets" id="presets">
-              <button class="chipbtn" data-s="50">50% · Desempenho máximo</button>
-              <button class="chipbtn" data-s="58">58% · Desempenho</button>
-              <button class="chipbtn" data-s="67">67% · Equilibrado</button>
-              <button class="chipbtn" data-s="77">77% · Qualidade</button>
-              <button class="chipbtn" data-s="100">100% · Nativa</button>
-            </div>
+      <div class="sect" id="s-vegetacao">
+        <div class="panel">
+          <div class="ph"><h2>Modo de vegetação</h2><span class="hint">vale para todas as reservas, inclusive DLCs</span></div>
+          <div id="vegOpts">
+            <div class="opt" data-v="normal"><span class="radio"></span><div><div class="t1">Normal</div><div class="t2">Vegetação original do jogo.</div></div><div class="meta"><b>0</b>escondidos</div></div>
+            <div class="opt" data-v="grama"><span class="radio"></span><div><div class="t1">Sem grama e mato</div><div class="t2">Somem grama, flores, mato, arbustos, pedras soltas e plantas d'água. As árvores ficam.</div></div><div class="meta"><b id="cntGrass">—</b>tipos de objeto</div></div>
+            <div class="opt" data-v="tudo"><span class="radio"></span><div><div class="t1">Nada (máximo FPS)</div><div class="t2">Some tudo, inclusive árvores próximas e distantes.</div></div><div class="meta"><b id="cntAll">—</b>tipos de objeto</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>Por reserva</h2></div>
+          <table><thead><tr><th>Reserva</th><th>Código</th><th class="num">Tipos de objeto</th><th>Escondidos neste modo</th></tr></thead><tbody id="mapsRows"></tbody></table>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>Como funciona</h2></div>
+          <div class="pb"><p class="note">O jogo carrega os pacotes <b>game0</b> a <b>gameN</b> da pasta <b>archives_win64\initial</b>, e quando o mesmo arquivo aparece em dois, vale o último. O Tacklebox lê os arquivos de vegetação da sua instalação, desliga as camadas escolhidas e grava tudo num pacote extra. Os pacotes originais não são tocados; as plantas continuam nos dados do mapa (o multiplayer continua sincronizado), só não são desenhadas e perdem a colisão.</p></div>
+        </div>
+      </div>
+
+      <div class="sect" id="s-sistema">
+        <div class="panel">
+          <div class="ph"><h2>Ajustes do Windows</h2><span class="hint">só do seu usuário, sem administrador</span></div>
+          <div class="setting">
+            <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><path d="M6 10h4v4H6zM14 10h4M14 14h4"/></svg></div>
+            <div><div class="t1">Placa de vídeo dedicada e Game Bar</div><div class="t2">Marca o jogo para usar a GPU de alto desempenho (diferença grande em notebook) e desliga a gravação em segundo plano do Xbox Game Bar.</div></div>
+            <label class="switch"><input type="checkbox" id="optWindows"><span class="t"></span></label>
+          </div>
+          <div class="setting">
+            <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></div>
+            <div><div class="t1">Prioridade alta</div><div class="t2">Quando o jogo é aberto pelo Tacklebox, o Windows dá prioridade "acima do normal" a ele.</div></div>
+            <label class="switch"><input type="checkbox" id="optPriority"><span class="t"></span></label>
           </div>
         </div>
       </div>
 
-      <div class="panel">
-        <div class="ph"><h2>O que muda</h2><span class="hint" id="gfxCount"></span></div>
-        <table>
-          <thead><tr><th>Configuração</th><th>Agora</th><th>Depois de aplicar</th></tr></thead>
-          <tbody id="gfxRows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- VEGETAÇÃO -->
-    <section class="page" id="p-vegetacao">
-      <div class="panel">
-        <div class="ph"><h2>Modo de vegetação</h2><span class="hint">vale para todos os mapas, inclusive DLCs</span></div>
-        <div class="opts" id="vegOpts">
-          <div class="opt" data-v="normal"><span class="radio"></span><div><div class="t1">Normal</div><div class="t2">Vegetação original do jogo.</div></div><div class="meta"><b>0</b>escondidos</div></div>
-          <div class="opt" data-v="grama"><span class="radio"></span><div><div class="t1">Sem grama e mato</div><div class="t2">Somem grama, flores, mato, arbustos, pedras soltas e plantas d'água. As árvores ficam.</div></div><div class="meta"><b id="cntGrass">—</b>tipos de objeto</div></div>
-          <div class="opt" data-v="tudo"><span class="radio"></span><div><div class="t1">Nada (máximo FPS)</div><div class="t2">Some tudo, inclusive árvores próximas e distantes.</div></div><div class="meta"><b id="cntAll">—</b>tipos de objeto</div></div>
+      <div class="sect" id="s-registro">
+        <div class="panel">
+          <div class="ph"><h2>Registro</h2><div class="right"><a class="link" id="clearLog">Limpar</a></div></div>
+          <div class="log" id="logFull"><div class="empty">Nada por aqui ainda.</div></div>
         </div>
-      </div>
-
-      <div class="panel">
-        <div class="ph"><h2>Mapas</h2></div>
-        <table>
-          <thead><tr><th>Reserva</th><th>Código</th><th class="num">Tipos de objeto</th><th>Escondidos neste modo</th></tr></thead>
-          <tbody id="mapsFull"></tbody>
-        </table>
-      </div>
-
-      <div class="panel">
-        <div class="ph"><h2>Como funciona</h2></div>
-        <div class="pb">
-          <p class="note">O jogo carrega os pacotes <b>game0</b> a <b>gameN</b> da pasta <b>archives_win64\initial</b>, e quando o mesmo arquivo aparece em dois, vale o último. O otimizador lê os arquivos de vegetação da sua instalação, desliga as camadas escolhidas e grava tudo num pacote extra. Os pacotes originais não são tocados; as plantas continuam existindo nos dados do mapa (o multiplayer continua sincronizado), só não são desenhadas, e perdem a colisão para não sobrar obstáculo invisível.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- SISTEMA -->
-    <section class="page" id="p-sistema">
-      <div class="panel">
-        <div class="ph"><h2>Ajustes do Windows</h2><span class="hint">só do seu usuário, sem administrador</span></div>
-        <div class="setting">
-          <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><path d="M6 10h4v4H6zM14 10h4M14 14h4"/></svg></div>
-          <div><div class="t1">Placa de vídeo dedicada e Game Bar</div><div class="t2">Marca o jogo para usar a GPU de alto desempenho (diferença grande em notebook) e desliga a gravação em segundo plano do Xbox Game Bar.</div></div>
-          <label class="switch"><input type="checkbox" id="optWindows"><span class="t"></span></label>
-        </div>
-        <div class="setting">
-          <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></div>
-          <div><div class="t1">Prioridade alta</div><div class="t2">Quando o jogo é aberto por aqui, o Windows dá prioridade "acima do normal" a ele.</div></div>
-          <label class="switch"><input type="checkbox" id="optPriority"><span class="t"></span></label>
-        </div>
-      </div>
-      <div class="panel">
-        <table>
-          <thead><tr><th>Ajuste</th><th>Onde</th><th>Desfazer</th></tr></thead>
-          <tbody>
-            <tr><td>GPU de alto desempenho</td><td class="muted">Configurações › Sistema › Tela › Gráficos</td><td class="muted">Desligar acima ou "Desfazer tudo"</td></tr>
-            <tr><td>Gravação em segundo plano</td><td class="muted">Xbox Game Bar › Capturas</td><td class="muted">Desligar acima ou "Desfazer tudo"</td></tr>
-            <tr><td>Prioridade do processo</td><td class="muted">Só enquanto o jogo está aberto</td><td class="muted">Some ao fechar o jogo</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- REGISTRO -->
-    <section class="page" id="p-registro">
-      <div class="panel">
-        <div class="ph"><h2>Registro</h2><div class="right"><a class="link" id="clearLog">Limpar</a></div></div>
-        <div class="log" id="logFull"><div class="empty">Nada por aqui ainda.</div></div>
       </div>
     </section>
   </div>
 
   <aside class="aside">
-    <div class="panel">
-      <div class="actions">
-        <button class="btn primary" id="btnPlay"><span class="spin"></span>Aplicar e jogar</button>
-        <button class="btn" id="btnApply">Só aplicar</button>
-        <button class="btn danger" id="btnUndo">Desfazer tudo</button>
+    <div class="panel play">
+      <div class="art" id="art"></div>
+      <div class="in">
+        <div class="gname">Call of the Wild: The Angler</div>
+        <div class="gsub" id="gsub">—</div>
+        <button class="btn primary" id="btnPlay"><span class="spin"></span><span>JOGAR</span></button>
+        <div class="caption" id="playCaption">aplica as otimizações escolhidas e abre o jogo</div>
       </div>
     </div>
     <div class="panel">
-      <div class="ph"><h2>Situação</h2></div>
-      <div class="srow"><span class="dot" id="dRun"></span><span class="k">Jogo</span><span class="v" id="sRun">—</span></div>
+      <div class="ph"><h2>Otimização</h2><div class="right"><a class="link" data-go="otimizar">Ajustar</a></div></div>
       <div class="srow"><span class="dot" id="dGfx"></span><span class="k">Gráficos</span><span class="v" id="sGfx">—</span></div>
       <div class="srow"><span class="dot" id="dVeg"></span><span class="k">Vegetação</span><span class="v" id="sVeg">—</span></div>
       <div class="srow"><span class="dot" id="dWin"></span><span class="k">Windows</span><span class="v" id="sWin">—</span></div>
     </div>
     <div class="panel">
-      <div class="ph"><h2>Atividade</h2><div class="right"><a class="link" data-go="registro">Ver tudo</a></div></div>
-      <div class="log scroll" id="logShort"><div class="empty">Escolha as opções e clique em "Aplicar e jogar".</div></div>
+      <div class="ph"><h2>Atividade</h2></div>
+      <div class="log scroll" id="logShort"><div class="empty">Nenhuma ação ainda.</div></div>
     </div>
     <div class="small muted" style="padding:0 2px;margin-top:auto"><span id="ver"></span> · <a class="link" id="lnkRepo">GitHub</a></div>
   </aside>
@@ -449,131 +553,364 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
-const VEG_LABEL = { normal: "Normal", grama: "Sem grama e mato", tudo: "Nada (máximo FPS)" };
-let opts = null, info = null, maps = null, busy = false, logs = [];
+const RANKS = ["Juvenil", "Bronze", "Prata", "Ouro", "Diamante", "Lendário"];
+const RANKC = ["var(--r0)", "var(--r1)", "var(--r2)", "var(--r3)", "var(--r4)", "var(--r5)"];
+const VEG_LABEL = { normal: "Normal", grama: "Sem grama e mato", tudo: "Nada" };
+let info = null, opts = null, stats = null, maps = null, busy = false, logs = [], gameRunning = false;
 
-/* ---------- janela ---------- */
-$("#titlebar").addEventListener("mousedown", (e) => {
-  if (e.button === 0 && !e.target.closest("button")) win("drag");
-});
+/* ---------- formatação ---------- */
+const nf = (v, d = 0) => (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const kg = (v) => v >= 0.9995 ? nf(v, 2) + " kg" : nf(v * 1000) + " g";
+const len = (m) => m >= 1 ? nf(m, 2) + " m" : nf(m * 100, 1) + " cm";
+const km = (v) => v >= 1 ? nf(v, 1) + " km" : nf(v * 1000) + " m";
+const pct = (v) => nf(v * 100, 1) + "%";
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const clock = (h) => { const t = Math.round((h || 0) * 60); return String(Math.floor(t / 60) % 24).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
+const dur = (s) => { s = Math.round(s || 0); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+function ago(ts) {
+  const d = Date.now() / 1000 - ts;
+  if (d < 60) return "agora";
+  if (d < 3600) return "há " + Math.floor(d / 60) + " min";
+  if (d < 86400) return "há " + Math.floor(d / 3600) + " h";
+  if (d < 86400 * 30) return "há " + Math.floor(d / 86400) + " dia" + (d >= 172800 ? "s" : "");
+  return new Date(ts * 1000).toLocaleDateString("pt-BR");
+}
+const fullDate = (ts) => new Date(ts * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const rank = (r) => `<span class="rank rk${r}"><i></i>${RANKS[r] || "—"}</span>`;
+const fishIco = (r) => `<div class="fishico"><svg width="18" height="18" viewBox="0 0 24 24" fill="${RANKC[r] || "var(--r0)"}"><path d="M2 12c3.5-5 9-6.5 13.5-3.5L21 5v14l-5.5-3.5C11 18.5 5.5 17 2 12z"/></svg></div>`;
+
+/* ---------- janela e navegação ---------- */
+$("#titlebar").addEventListener("mousedown", (e) => { if (e.button === 0 && !e.target.closest("button")) win("drag"); });
 $("#wMin").onclick = () => win("min");
 $("#wClose").onclick = () => win("close");
 document.addEventListener("contextmenu", (e) => e.preventDefault());
-
-/* ---------- navegação ---------- */
 function go(p) {
   $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.p === p));
   $$(".page").forEach(s => s.classList.toggle("on", s.id === "p-" + p));
   document.querySelector(".main").scrollTop = 0;
-  if (p === "graficos") loadGraphics();
+  if (p === "otimizar") loadGraphics();
 }
 $$(".tab").forEach(t => t.onclick = () => go(t.dataset.p));
 document.addEventListener("click", (e) => { const a = e.target.closest("[data-go]"); if (a) go(a.dataset.go); });
+function sect(s) {
+  $$("#subnav .chipbtn").forEach(b => b.classList.toggle("on", b.dataset.s === s));
+  $$(".sect").forEach(x => x.classList.toggle("on", x.id === "s-" + s));
+}
+$$("#subnav .chipbtn").forEach(b => b.onclick = () => sect(b.dataset.s));
 
-/* ---------- opções ---------- */
-function save() { saveOptions(opts); renderProfile(); }
+/* ---------- estatísticas ---------- */
+window.onStats = (s) => { stats = s; renderStats(); };
 
+function renderStats() {
+  const live = $("#live");
+  if (!stats || !stats.ok) {
+    live.innerHTML = `<span class="dot r"></span><span>${esc(stats ? stats.error : "Sem save")}</span>`;
+    ["#resList", "#bestList", "#lastList"].forEach(id => $(id).innerHTML = `<div class="empty">${esc(stats ? stats.error : "")}</div>`);
+    return;
+  }
+  const recent = Date.now() / 1000 - stats.modified < 600;
+  live.innerHTML = `<span class="dot ${recent ? "g" : ""}"></span><span>Save atualizado ${ago(stats.modified)} · ${new Date(stats.modified * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>`;
+  const p = stats.player;
+  $("#pName").textContent = p.name || "Pescador";
+  $("#pLevel").textContent = "Nível " + p.level;
+  if (p.avatar) $("#avatar").innerHTML = `<img src="${p.avatar}" alt="">`;
+  const lvlPct = p.nextLevelXp ? Math.min(100, p.levelXp * 100 / p.nextLevelXp) : 100;
+  $("#pXpBar").style.width = lvlPct + "%";
+  $("#pXpText").textContent = p.nextLevelXp ? `${nf(p.levelXp)} / ${nf(p.nextLevelXp)} XP para o nível ${p.level + 1} · ${nf(p.xp)} XP no total` : `Nível máximo · ${nf(p.xp)} XP`;
+  $("#kMoney").textContent = "$" + nf(p.money);
+  $("#kCaught").textContent = nf(p.caught);
+  $("#kSpecies").textContent = nf(p.species);
+  $("#kLegend").textContent = nf(p.legendaries);
+
+  const R = stats.reserves || [];
+  const sum = (k) => R.reduce((a, r) => a + (r[k] || 0), 0);
+  const ov = [
+    ["Peixes pegos", nf(p.caught)], ["Peixes que escaparam", nf(p.escaped)],
+    ["Ferradas certas", pct(p.strikeRate)], ["Arremessos perfeitos", nf(p.perfectCasts)],
+    ["Linhas arrebentadas", nf(sum("linesSnapped"))], ["Quedas do barco", nf(sum("fallenFromBoat"))],
+    ["Peso total pescado", kg(p.totalWeight)], ["Lendários", nf(p.legendaries)],
+    ["Distância a pé", km(sum("distFoot"))], ["Distância de barco", km(sum("distBoat"))],
+    ["Distância de carro", km(sum("distCar"))], ["Viagem rápida", km(sum("distFast"))],
+    ["Gasto na loja", "$" + nf(p.spent)], ["Ganho vendendo", "$" + nf(p.earned)],
+  ];
+  $("#overview").innerHTML = ov.map(([k, v]) => `<div class="stat"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+
+  const maxCaught = Math.max(1, ...R.map(r => r.caught));
+  $("#resList").innerHTML = R.length ? R.map(r => `
+    <div class="resrow">
+      <div><div class="strong">${esc(r.name)}</div><div class="sub2">${esc(r.region)} · reputação ${nf(r.reputation)}</div></div>
+      <div class="bar"><i style="width:${r.caught * 100 / maxCaught}%"></i></div>
+      <div class="num"><span class="strong">${nf(r.caught)}</span> <span class="sub2">peixes</span></div>
+    </div>`).join("") : `<div class="empty">Nenhuma reserva visitada ainda.</div>`;
+
+  const catchRow = (c, right) => `<div class="catch">${fishIco(c.rank)}<div><div class="t1">${esc(c.species)}</div><div class="sub2">${esc(c.reserve)} · ${rank(c.rank)}</div></div><div class="meta">${right}</div></div>`;
+  const best = stats.best || [];
+  $("#bestList").innerHTML = best.length ? best.map(c => catchRow(c, `<b>${kg(c.weight)}</b><span class="sub2">TruScore ${nf(c.truScore)}</span>`)).join("") : `<div class="empty">Nenhuma captura ainda.</div>`;
+  const last = (stats.catches || []).slice(0, 6);
+  $("#lastList").innerHTML = last.length ? last.map(c => catchRow(c, `<b>${kg(c.weight)}</b><span class="sub2">${ago(c.date)}</span>`)).join("") : `<div class="empty">Nenhuma captura ainda.</div>`;
+
+  fillReserveSelect("#spReserve", (stats.species || []).map(s => s.reserve));
+  fillReserveSelect("#caReserve", (stats.catches || []).map(s => s.reserve));
+  renderSpecies();
+  renderCatches();
+  renderReserves();
+  renderGuide();
+}
+
+function fillReserveSelect(sel, names) {
+  const el = $(sel), cur = el.value;
+  const list = ["", ...new Set(names)];
+  el.innerHTML = list.map(n => `<option value="${esc(n)}">${n ? esc(n) : "Todas as reservas"}</option>`).join("");
+  if (list.includes(cur)) el.value = cur;
+}
+
+function renderSpecies() {
+  if (!stats || !stats.ok) return;
+  const res = $("#spReserve").value, q = $("#spSearch").value.trim().toLowerCase(), sort = $("#spSort").value;
+  let rows = (stats.species || []).filter(s => (!res || s.reserve === res) && (!q || s.species.toLowerCase().includes(q)));
+  const by = { caught: (a, b) => b.caught - a.caught, weight: (a, b) => b.biggest.weight - a.biggest.weight,
+    score: (a, b) => b.bestScore.truScore - a.bestScore.truScore, rank: (a, b) => b.biggest.rank - a.biggest.rank || b.caught - a.caught,
+    name: (a, b) => a.species.localeCompare(b.species) };
+  rows.sort(by[sort]);
+  $("#spCount").textContent = `${rows.length} espécie${rows.length === 1 ? "" : "s"}`;
+  $("#spRows").innerHTML = rows.length ? rows.map(s => {
+    const br = s.byRank || [];
+    let top = 0; br.forEach((v, i) => { if (v) top = i; });
+    const total = br.reduce((a, b) => a + b, 0) || 1;
+    const bar = br.map((v, i) => v ? `<span style="width:${v * 100 / total}%;background:${RANKC[i]}"></span>` : "").join("");
+    return `<tr>
+      <td><div class="strong">${esc(s.species)}</div><div class="sub2">${esc(s.reserve)}</div></td>
+      <td class="num strong">${nf(s.caught)}</td><td class="num">${nf(s.escaped)}</td>
+      <td class="num">${s.biggest.weight ? kg(s.biggest.weight) : "—"}</td><td class="num">${s.biggest.length ? len(s.biggest.length) : "—"}</td>
+      <td class="num">${s.bestScore.truScore ? nf(s.bestScore.truScore) : "—"}</td>
+      <td>${s.caught ? rank(top) : "—"}</td>
+      <td><div class="rankbar">${bar}</div></td>
+      <td class="num">${nf(s.day)} / ${nf(s.night)}</td>
+      <td class="num">${kg(s.totalWeight)}</td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="muted">Nenhuma espécie encontrada.</td></tr>`;
+}
+$("#spReserve").onchange = renderSpecies; $("#spSort").onchange = renderSpecies; $("#spSearch").oninput = renderSpecies;
+
+function renderCatches() {
+  if (!stats || !stats.ok) return;
+  const res = $("#caReserve").value;
+  const rows = (stats.catches || []).filter(c => !res || c.reserve === res);
+  $("#caCount").textContent = `${rows.length} captura${rows.length === 1 ? "" : "s"}`;
+  $("#caRows").innerHTML = rows.length ? rows.map(c => `<tr>
+      <td><div class="strong">${ago(c.date)}</div><div class="sub2">${fullDate(c.date)}</div></td>
+      <td><div class="strong">${esc(c.species)}</div><div class="sub2">${esc(c.reserve)}</div></td>
+      <td class="num strong">${kg(c.weight)}</td><td class="num">${len(c.length)}</td>
+      <td>${rank(c.rank)}</td><td class="num">${nf(c.truScore)}</td>
+      <td class="num">${dur(c.catchSecs)}</td><td class="num">${clock(c.gameTime)}</td><td class="num">${nf(c.waterTempC, 1)} °C</td></tr>`).join("")
+    : `<tr><td colspan="9" class="muted">Nenhuma captura ainda.</td></tr>`;
+}
+$("#caReserve").onchange = renderCatches;
+
+function renderReserves() {
+  const R = stats.reserves || [];
+  if (!R.length) { $("#resGrid").innerHTML = `<div class="empty">Nenhuma reserva visitada ainda.</div>`; return; }
+  $("#resGrid").innerHTML = R.map(r => {
+    const strikes = r.strikeOK + r.strikeFail;
+    const dist = [["A pé", r.distFoot], ["Barco", r.distBoat], ["Carro", r.distCar], ["Viagem rápida", r.distFast]];
+    const dmax = Math.max(0.001, ...dist.map(d => d[1]));
+    return `<div class="panel">
+      <div class="ph"><div><h2>${esc(r.name)}</h2><div class="sub2">${esc(r.region)}</div></div>
+        <div class="right rep">Reputação <div class="bar"><i style="width:${Math.min(100, r.reputation)}%"></i></div><b style="color:var(--text)">${nf(r.reputation)}</b></div></div>
+      <div class="tiles">
+        <div class="tile"><b>${nf(r.caught)}</b><span>Peixes</span></div>
+        <div class="tile"><b>${nf(r.species)}</b><span>Espécies</span></div>
+        <div class="tile"><b>${kg(r.totalWeight)}</b><span>Peso total</span></div>
+        <div class="tile"><b>${nf(r.legendaries)}</b><span>Lendários</span></div>
+      </div>
+      <div class="statlist">
+        <div class="stat"><span class="k">Ferradas certas</span><span class="v">${strikes ? pct(r.strikeOK / strikes) : "—"}</span></div>
+        <div class="stat"><span class="k">Arremessos perfeitos</span><span class="v">${nf(r.perfectCasts)}</span></div>
+        <div class="stat"><span class="k">Linhas arrebentadas</span><span class="v">${nf(r.linesSnapped)}</span></div>
+        <div class="stat"><span class="k">Escaparam</span><span class="v">${nf(r.escaped)}</span></div>
+        <div class="stat"><span class="k">Quedas do barco</span><span class="v">${nf(r.fallenFromBoat)}</span></div>
+        <div class="stat"><span class="k">Ponto mais alto</span><span class="v">${nf(r.highestHeight)} m</span></div>
+      </div>
+      <div class="pb" style="display:grid;gap:7px">
+        ${dist.map(([k, v]) => `<div style="display:grid;grid-template-columns:96px 1fr 70px;align-items:center;gap:10px;font-size:12.5px"><span class="muted">${k}</span><div class="bar"><i style="width:${v * 100 / dmax}%"></i></div><span class="num">${km(v)}</span></div>`).join("")}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ---------- guia ---------- */
+let guide = null, gSel = "";
+const SUN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
+const MOON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+const whenTag = (t) => t === "dia" ? `<span class="when dia">${SUN}Dia</span>` : t === "noite" ? `<span class="when noite">${MOON}Noite</span>` : `<span class="when">Qualquer hora</span>`;
+const TIERS = ["Favoritas", "Boas", "Às vezes"];
+const PREF = ["Favorita", "Boa", "Às vezes"];
+const range = (a, b, u) => a === b ? nf(a, a % 1 ? 1 : 0) + u : `${nf(a, a % 1 ? 1 : 0)}–${nf(b, b % 1 ? 1 : 0)}${u}`;
+
+window.onGuide = (g) => { guide = g; renderGuide(); };
+function currentWorld() { const c = stats && stats.ok && (stats.catches || [])[0]; return c ? c.world : ""; }
+function caughtIndex() {
+  const m = {};
+  if (stats && stats.ok) (stats.species || []).forEach(s => { m[s.world + ":" + s.speciesId] = s; });
+  return m;
+}
+const topRank = (s) => { let t = -1; (s && s.byRank || []).forEach((v, i) => { if (v) t = i; }); return t; };
+
+function guideWorld() {
+  const v = $("#gReserve").value;
+  if (v && v !== "auto") return v;
+  return currentWorld() || (guide.reserves[0] || {}).world;
+}
+
+function renderGuide() {
+  if (!guide) return;
+  if (!guide.ok) { $("#gList").innerHTML = `<div class="empty">${esc(guide.error || "Guia indisponível.")}</div>`; return; }
+  const sel = $("#gReserve"), cur = sel.value || "auto";
+  const cw = currentWorld(), cr = guide.reserves.find(r => r.world === cw);
+  sel.innerHTML = `<option value="auto">Automático${cr ? " · " + esc(cr.name) : ""}</option>` +
+    guide.reserves.map(r => `<option value="${r.world}">${esc(r.name)}</option>`).join("");
+  sel.value = cur;
+  const res = guide.reserves.find(r => r.world === guideWorld()) || guide.reserves[0];
+  const q = $("#gSearch").value.trim().toLowerCase(), missing = $("#gMissing").checked;
+  const idx = caughtIndex();
+  const match = (f) => !q || f.name.toLowerCase().includes(q) || (f.species || "").toLowerCase().includes(q) ||
+    f.baits.some(b => b.name.toLowerCase().includes(q)) || f.lures.some(l => l.name.toLowerCase().includes(q));
+  const list = res.fish.filter(f => match(f) && (!missing || (!f.legendary && !(idx[res.world + ":" + f.speciesId] || {}).caught)));
+  if (!list.find(f => f.id === gSel)) gSel = list.length ? list[0].id : "";
+  const row = (f) => {
+    const st = f.legendary ? null : idx[res.world + ":" + f.speciesId];
+    const r = topRank(st);
+    const ico = f.legendary ? fishIco(5) : st && st.caught ? fishIco(r) : `<div class="fishico no"></div>`;
+    const hook = f.baits.filter(b => b.tier === 0 && b.kind !== "ceva").map(b => b.name);
+    const fav = [...hook, ...f.lures.filter(l => l.tier === 0).map(l => l.name), ...f.baits.filter(b => b.tier === 0 && b.kind === "ceva").map(b => b.name)];
+    return `<div class="frow${f.id === gSel ? " on" : ""}" data-f="${esc(f.id)}" role="button" aria-label="${esc(f.name)}">${ico}
+      <div class="grow"><div class="t1">${esc(f.name)}</div><div class="sub2">${range(f.depthMin, f.depthMax, " m")} · ${esc(fav.slice(0, 3).join(", ") || "—")}</div></div>
+      ${f.time === "dia" ? `<span class="when dia">${SUN}</span>` : f.time === "noite" ? `<span class="when noite">${MOON}</span>` : ""}</div>`;
+  };
+  const normal = list.filter(f => !f.legendary), legend = list.filter(f => f.legendary);
+  const caughtN = res.fish.filter(f => !f.legendary && (idx[res.world + ":" + f.speciesId] || {}).caught).length;
+  const totalN = res.fish.filter(f => !f.legendary).length;
+  $("#gList").innerHTML = (list.length ? `<div class="gsep">${esc(res.name)} · ${caughtN}/${totalN} espécies pegas</div>` + normal.map(row).join("") +
+    (legend.length ? `<div class="gsep">Lendários</div>` + legend.map(row).join("") : "") : `<div class="empty">Nada encontrado.</div>`);
+  renderFish(res, list.find(f => f.id === gSel), idx);
+}
+
+function renderFish(res, f, idx) {
+  if (!f) { $("#gDetail").innerHTML = `<div class="empty">Escolha um peixe.</div>`; return; }
+  const st = f.legendary ? null : idx[res.world + ":" + f.speciesId];
+  const mine = st && st.caught ? `<div class="strong">${nf(st.caught)} pego${st.caught === 1 ? "" : "s"}</div><div class="sub2">maior: ${kg(st.biggest.weight)} · ${rank(topRank(st))}</div>`
+    : f.legendary ? `<div class="sub2">peixe lendário</div>` : `<div class="sub2">você ainda não pegou</div>`;
+  const tiers = [0, 1, 2].map(t => {
+    const bs = f.baits.filter(b => b.tier === t);
+    return bs.length ? `<div class="tier"><span>${TIERS[t]}</span><div class="chips">${bs.map(b => `<span class="chip${t === 0 ? " fav" : t === 2 ? " weak" : ""}">${esc(b.name)}<small>${b.kind}</small></span>`).join("")}</div></div>` : "";
+  }).join("");
+  const lures = f.lures.map(l => `<div class="lrow"><span class="strong">${esc(l.name)}</span><div class="chips">${l.styles.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div><span class="pref p${l.tier}">${PREF[l.tier]}</span></div>`).join("");
+  const tags = (arr) => arr.length ? `<div class="chips">${arr.map(t => `<span class="chip" title="${esc(t.en || "")}">${esc(t.name)}</span>`).join("")}</div>` : `<span class="muted small">—</span>`;
+  let medals = "";
+  if (f.legendary) {
+    medals = `<div class="medals"><div><span class="rank rk5"><i></i>Lendário</span><b>${kg(f.kgMax[0])}</b></div></div>`;
+  } else if (f.kgMax && f.kgMax.length) {
+    let lo = f.kgMin;
+    medals = `<div class="medals">${f.kgMax.map((hi, i) => { const c = `<div><span class="rank rk${i}"><i></i>${RANKS[i]}</span><b>${i === 0 ? "até " + kg(hi) : kg(lo) + " – " + kg(hi)}</b></div>`; lo = hi; return c; }).join("")}</div>`;
+  }
+  $("#gDetail").innerHTML = `
+    <div class="ghead">${f.legendary ? fishIco(5) : st && st.caught ? fishIco(topRank(st)) : `<div class="fishico"></div>`}
+      <div><h2>${esc(f.name)} ${f.legendary ? `<span class="tag leg">LENDÁRIO</span>` : ""}</h2><div class="sub2">${f.species ? esc(f.species) + " · " : ""}${esc(res.name)}</div></div>
+      <div class="right">${mine}</div></div>
+    <div class="tiles">
+      <div class="tile"><b>${range(f.depthMin, f.depthMax, " m")}</b><span>Profundidade</span></div>
+      <div class="tile"><b>${f.legendary ? "—" : range(f.tempMin, f.tempMax, " °C")}</b><span>${f.legendary ? "Temperatura" : "Água · ideal " + nf(f.tempIdeal, f.tempIdeal % 1 ? 1 : 0) + " °C"}</span></div>
+      <div class="tile"><b style="font-size:15px;padding:2px 0">${whenTag(f.time)}</b><span>Horário</span></div>
+      <div class="tile"><b style="font-size:15px;padding:2px 0">${esc(f.current || "—")}</b><span>Correnteza</span></div>
+    </div>
+    <div class="gsec"><h3>Iscas</h3>${tiers || `<span class="muted small">Nenhuma isca natural.</span>`}</div>
+    ${lures ? `<div class="gsec"><h3>Iscas artificiais e recolhimento</h3>${lures}</div>` : ""}
+    ${f.legendary ? "" : `<div class="gsec" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div><h3>Onde procurar</h3>${tags(f.habitats)}</div>
+      <div><h3>Abrigo e alimentação</h3>${tags([...f.cover, ...f.foods])}</div></div>`}
+    ${f.traits.length ? `<div class="gsec"><h3>Comportamento</h3>${f.traits.map(t => `<div class="trait"><b title="${esc(t.en || "")}">${esc(t.name)}</b><span>${esc(t.desc || "")}</span></div>`).join("")}</div>` : ""}
+    <div class="gsec"><h3>Peso por troféu</h3>${medals}</div>`;
+}
+$("#gReserve").onchange = renderGuide;
+$("#gSearch").oninput = renderGuide;
+$("#gMissing").onchange = renderGuide;
+$("#gList").addEventListener("click", (e) => { const r = e.target.closest("[data-f]"); if (r) { gSel = r.dataset.f; renderGuide(); } });
+$("#btnOverlay").onclick = async () => { try { await toggleOverlay(); } catch (e) { window.onLog(["warn", String(e)]); } };
+$("#lnkSheet").onclick = () => guide && openURL(guide.sheet);
+
+/* ---------- otimização ---------- */
+function save() { saveOptions(opts); renderOptSummary(); }
 function renderOptions() {
   $("#optGraphics").checked = opts.graphics;
   $("#gfxLabel").textContent = opts.graphics ? "Ativado" : "Desativado";
   $("#resPanel").style.opacity = opts.graphics ? 1 : .5;
   $("#optScale").value = opts.scale;
   $("#scaleVal").textContent = opts.scale + "%";
-  $$("#presets .chipbtn").forEach(b => b.classList.toggle("on", +b.dataset.s === opts.scale));
+  $$("#presets .chipbtn").forEach(b => b.classList.toggle("on", +b.dataset.v === opts.scale));
   $$("#vegOpts .opt").forEach(o => o.classList.toggle("on", o.dataset.v === opts.vegetation));
   $("#optWindows").checked = opts.windows;
   $("#optPriority").checked = opts.priority;
-  renderProfile();
   renderMaps();
 }
-
-function renderProfile() {
-  $("#pfGfx").textContent = opts.graphics ? `Desempenho · resolução ${opts.scale}%` : "Originais do jogo";
-  $("#pfVeg").textContent = VEG_LABEL[opts.vegetation];
-  $("#pfWin").textContent = opts.windows ? "GPU dedicada + Game Bar desligado" : "Sem ajustes";
-  $("#pfPri").textContent = opts.priority ? "Acima do normal" : "Normal";
-}
-
 $("#optGraphics").onchange = (e) => { opts.graphics = e.target.checked; renderOptions(); save(); loadGraphics(); };
-$("#optScale").oninput = (e) => { opts.scale = +e.target.value; $("#scaleVal").textContent = opts.scale + "%"; $$("#presets .chipbtn").forEach(b => b.classList.toggle("on", +b.dataset.s === opts.scale)); };
+$("#optScale").oninput = (e) => { opts.scale = +e.target.value; $("#scaleVal").textContent = opts.scale + "%"; $$("#presets .chipbtn").forEach(b => b.classList.toggle("on", +b.dataset.v === opts.scale)); };
 $("#optScale").onchange = () => { save(); loadGraphics(); };
-$$("#presets .chipbtn").forEach(b => b.onclick = () => { opts.scale = +b.dataset.s; renderOptions(); save(); loadGraphics(); });
+$$("#presets .chipbtn").forEach(b => b.onclick = () => { opts.scale = +b.dataset.v; renderOptions(); save(); loadGraphics(); });
 $$("#vegOpts .opt").forEach(o => o.onclick = () => { opts.vegetation = o.dataset.v; renderOptions(); save(); });
 $("#optWindows").onchange = (e) => { opts.windows = e.target.checked; save(); };
 $("#optPriority").onchange = (e) => { opts.priority = e.target.checked; save(); };
 
-/* ---------- gráficos ---------- */
 async function loadGraphics() {
-  const rows = await getGraphics(opts.scale);
-  const tb = $("#gfxRows");
-  tb.innerHTML = "";
+  const rows = await getGraphics(opts.scale) || [];
   let n = 0;
-  for (const r of rows || []) {
-    const tr = document.createElement("tr");
-    const after = opts.graphics ? r.target : r.current;
+  $("#gfxRows").innerHTML = rows.map(r => {
     const changed = opts.graphics && r.changed;
     if (changed) n++;
-    tr.innerHTML = `<td></td><td class="same"></td><td></td>`;
-    tr.children[0].textContent = r.label;
-    tr.children[1].textContent = r.current;
-    tr.children[2].textContent = after;
-    tr.children[2].className = changed ? "chg" : "same";
-    tb.appendChild(tr);
-  }
-  $("#gfxCount").textContent = opts.graphics ? `${n} de ${(rows || []).length} configurações mudam` : "desativado: nada muda (ou volta ao backup)";
+    return `<tr><td>${esc(r.label)}</td><td class="same">${esc(r.current)}</td><td class="${changed ? "chg" : "same"}">${esc(opts.graphics ? r.target : r.current)}</td></tr>`;
+  }).join("");
+  $("#gfxCount").textContent = opts.graphics ? `${n} de ${rows.length} configurações mudam` : "desativado: volta ao backup";
 }
 
-/* ---------- mapas ---------- */
 window.onMaps = (m) => { maps = m; renderMaps(); };
 function renderMaps() {
   if (!maps) return;
   let grass = 0, all = 0;
-  const rows = (full) => maps.map(m => {
+  $("#mapsRows").innerHTML = maps.map(m => {
     grass += m.grass; all += m.objects;
     const hidden = opts.vegetation === "tudo" ? m.objects : opts.vegetation === "grama" ? m.grass : 0;
-    const pct = m.objects ? Math.round(hidden * 100 / m.objects) : 0;
-    return `<tr><td><div style="color:var(--text);font-weight:600">${m.name || m.world}</div><div class="muted small">${m.region || ""}</div></td><td class="muted">${m.world}</td>
-      <td class="num">${m.found ? m.objects : '<span class="muted">não instalado</span>'}</td>
-      <td><div class="cellbar"><div class="bar" style="flex:1"><i style="width:${pct}%"></i></div><span>${hidden}</span></div></td></tr>`;
+    return `<tr><td><div class="strong">${esc(m.name || m.world)}</div><div class="sub2">${esc(m.region || "")}</div></td><td class="muted">${esc(m.world)}</td>
+      <td class="num">${m.found ? nf(m.objects) : '<span class="muted">não instalado</span>'}</td>
+      <td><div style="display:flex;align-items:center;gap:10px"><div class="bar" style="flex:1"><i style="width:${m.objects ? hidden * 100 / m.objects : 0}%"></i></div><span class="num" style="min-width:36px">${nf(hidden)}</span></div></td></tr>`;
   }).join("");
-  const html = rows(true);
-  $("#mapsShort").innerHTML = html;
-  grass = 0; all = 0;
-  $("#mapsFull").innerHTML = rows(true);
-  $("#cntGrass").textContent = grass;
-  $("#cntAll").textContent = all;
+  $("#cntGrass").textContent = nf(grass);
+  $("#cntAll").textContent = nf(all);
+}
+
+function renderOptSummary() {
+  $("#playCaption").textContent = `${opts.graphics ? "gráficos " + opts.scale + "%" : "gráficos originais"} · vegetação: ${VEG_LABEL[opts.vegetation].toLowerCase()}`;
 }
 
 /* ---------- status ---------- */
-function setDot(id, cls) { $(id).className = "dot " + (cls || ""); }
+const dot = (id, c) => $(id).className = "dot " + (c || "");
 async function refresh() {
   let s;
   try { s = await getStatus(); } catch (e) { return; }
+  gameRunning = s.gameRunning;
   const pill = $("#pillGame");
-  if (!s.gameFound) { pill.querySelector(".dot").className = "dot r"; pill.lastElementChild.textContent = "Jogo não encontrado"; }
-  else { pill.querySelector(".dot").className = "dot " + (s.gameRunning ? "y" : "g"); pill.lastElementChild.textContent = s.gameRunning ? "Jogo aberto" : "Jogo fechado"; }
+  pill.querySelector(".dot").className = "dot " + (!s.gameFound ? "r" : s.gameRunning ? "g" : "");
+  pill.lastElementChild.textContent = !s.gameFound ? "Jogo não encontrado" : s.gameRunning ? "Jogando agora" : "Jogo fechado";
   $("#banner").classList.toggle("show", s.gameRunning && !busy);
-  $("#kvRun").textContent = !s.gameFound ? "Não encontrado" : s.gameRunning ? "Aberto" : (s.iniFound ? "Fechado" : "Abra o jogo uma vez para criar as configurações");
-
-  setDot("#dRun", !s.gameFound ? "r" : s.gameRunning ? "y" : "g");
-  $("#sRun").textContent = !s.gameFound ? "Não encontrado" : s.gameRunning ? "Aberto" : "Fechado";
-  setDot("#dGfx", s.graphicsOn ? "g" : ""); $("#sGfx").textContent = s.graphicsOn ? "Desempenho" : "Não aplicado";
-  setDot("#dVeg", s.vegInstalled ? "g" : ""); $("#sVeg").textContent = s.vegInstalled ? "Escondida" : "Original";
-  setDot("#dWin", s.windowsTweaks ? "g" : ""); $("#sWin").textContent = s.windowsTweaks ? "Ajustado" : "Padrão";
-
-  const tag = (on, a, b) => `<span class="tag ${on ? "on" : ""}">${on ? a : b}</span>`;
-  $("#pfGfxSt").innerHTML = tag(s.graphicsOn, "Aplicado", "Não aplicado");
-  $("#pfVegSt").innerHTML = tag(s.vegInstalled, "Mod instalado", "Original");
-  $("#pfWinSt").innerHTML = tag(s.windowsTweaks, "Aplicado", "Padrão");
+  dot("#dGfx", s.graphicsOn ? "g" : ""); $("#sGfx").textContent = s.graphicsOn ? "Desempenho" : "Não aplicado";
+  dot("#dVeg", s.vegInstalled ? "g" : ""); $("#sVeg").textContent = s.vegInstalled ? "Escondida" : "Original";
+  dot("#dWin", s.windowsTweaks ? "g" : ""); $("#sWin").textContent = s.windowsTweaks ? "Ajustado" : "Padrão";
+  $("#btnPlay").lastElementChild.textContent = s.gameRunning ? "JOGO ABERTO" : "JOGAR";
 }
 
-/* ---------- registro ---------- */
-function time() { return new Date().toTimeString().slice(0, 8); }
+/* ---------- registro e ações ---------- */
+const time = () => new Date().toTimeString().slice(0, 8);
 function logRow(l) {
-  const ic = { ok: "✓", warn: "!", err: "✕", info: "•" }[l.level] || "•";
   const d = document.createElement("div");
   d.className = "l " + l.level;
-  d.innerHTML = `<span class="tm">${l.t}</span><span class="ic">${ic}</span><span class="msg"></span>`;
+  d.innerHTML = `<span class="tm">${l.t}</span><span class="ic">${{ ok: "✓", warn: "!", err: "✕", info: "•" }[l.level] || "•"}</span><span class="msg"></span>`;
   d.lastChild.textContent = l.msg;
   return d;
 }
@@ -582,7 +919,7 @@ function renderLog() {
   full.innerHTML = ""; short.innerHTML = "";
   if (!logs.length) {
     full.innerHTML = '<div class="empty">Nada por aqui ainda.</div>';
-    short.innerHTML = '<div class="empty">Escolha as opções e clique em "Aplicar e jogar".</div>';
+    short.innerHTML = '<div class="empty">Nenhuma ação ainda.</div>';
     return;
   }
   logs.forEach(l => full.appendChild(logRow(l)));
@@ -591,8 +928,6 @@ function renderLog() {
 }
 window.onLog = ([level, msg]) => { logs.push({ level, msg, t: time() }); renderLog(); };
 $("#clearLog").onclick = () => { logs = []; renderLog(); };
-
-/* ---------- ações ---------- */
 function setBusy(b) {
   busy = b;
   document.body.classList.toggle("busy", b);
@@ -601,15 +936,16 @@ function setBusy(b) {
 window.onBusy = () => setBusy(true);
 window.onDone = (ok) => {
   setBusy(false);
-  window.onLog([ok ? "ok" : "warn", ok ? "Pronto!" : "Terminou com avisos (veja acima)."]);
-  refresh(); if ($("#p-graficos").classList.contains("on")) loadGraphics();
+  window.onLog([ok ? "ok" : "warn", ok ? "Pronto!" : "Terminou com avisos (veja o registro)."]);
+  refresh();
+  if ($("#p-otimizar").classList.contains("on")) loadGraphics();
 };
 async function run(fn) {
   if (busy) return;
   setBusy(true);
   try { await fn(); } catch (e) { window.onLog(["err", String(e)]); setBusy(false); }
 }
-$("#btnPlay").onclick = () => run(() => apply(opts, true));
+$("#btnPlay").onclick = () => { if (!gameRunning) run(() => apply(opts, true)); };
 $("#btnApply").onclick = () => run(() => apply(opts, false));
 $("#btnUndo").onclick = () => run(() => undo());
 $("#lnkRepo").onclick = () => openURL(info.repo);
@@ -618,20 +954,18 @@ $("#lnkRepo").onclick = () => openURL(info.repo);
 (async () => {
   info = await getInfo();
   opts = info.options;
-  $("#ver").textContent = "Angler Otimizador v" + info.version;
-  $("#kvPath").textContent = info.gamePath || "Não encontrado";
-  $("#kvPath").title = info.gamePath || "";
-  $("#kvIni").textContent = info.iniPath || "—";
-  $("#kvIni").title = info.iniPath || "";
-  $("#kvBuild").textContent = info.build || "—";
+  $("#ver").textContent = "Tacklebox v" + info.version;
   $("#subBuild").textContent = info.build ? "Build " + info.build : "";
-  $("#subPath").textContent = info.gamePath || "Jogo não encontrado na Steam";
+  $("#gsub").textContent = info.gamePath ? "Steam · build " + (info.build || "—") : "Jogo não encontrado na Steam";
   renderOptions();
+  renderOptSummary();
   refresh();
   setInterval(refresh, 2000);
+  setInterval(() => { if (stats && stats.ok) renderStats(); }, 60000);
+  const s = await getStats(); if (s) window.onStats(s);
   const m = await getMaps(); if (m) window.onMaps(m);
-  const b = await getBanner();
-  if (b) { const img = new Image(); img.src = b; img.alt = ""; $("#cover").appendChild(img); }
+  const g = await getGuide(); if (g) window.onGuide(g);
+  const b = await getBanner(); if (b) $("#art").style.backgroundImage = `url(${b})`;
 })();
 </script>
 </body>

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Tacklebox Overlay</title>
+<style>
+  :root {
+    --title: #12161e; --bg: #1a2029; --panel: #20262f; --panel-2: #262d38; --line: #2a323f; --border: #323c4b; --border-2: #3b4658;
+    --text: #e3e8ef; --text-2: #c3cbd7; --muted: #8793a6; --faint: #5d687a;
+    --accent: #1e9ee0; --accent-h: #31aeee; --accent-soft: rgba(30,158,224,.15);
+    --r0: #8a94a3; --r1: #c58a5a; --r2: #b9c4cf; --r3: #e4b53c; --r4: #6fd3f2; --r5: #c38bff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font: 12.5px/1.4 "Segoe UI", system-ui, sans-serif; color: var(--text); background: var(--bg); border: 1px solid #0b0e13;
+         display: flex; flex-direction: column; overflow: hidden; user-select: none; -webkit-font-smoothing: antialiased; }
+  button, select { font: inherit; color: inherit; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .head { height: 42px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 6px 0 12px; background: var(--title); border-bottom: 1px solid #0c0f15; cursor: move; }
+  .mark { width: 22px; height: 22px; border-radius: 5px; background: var(--accent); display: grid; place-items: center; flex: none; }
+  .head b { font-size: 13px; font-weight: 700; }
+  .head select { margin-left: auto; max-width: 190px; background: #1b212b; border: 1px solid var(--border-2); border-radius: 3px; padding: 3px 6px; font-size: 12px; outline: none; cursor: pointer; }
+  .x { width: 30px; height: 30px; border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; border-radius: 3px; }
+  .x:hover { background: #262e3a; color: var(--text); }
+
+  .now { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .now .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .now .t1 { font-weight: 600; font-size: 13px; }
+  .now .side { margin-left: auto; text-align: right; }
+  .now .side b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .prog { flex: none; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11.5px; }
+  .bar { flex: 1; height: 5px; background: #151a21; border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+
+  .filters { flex: none; display: flex; gap: 5px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .f { border: 1px solid var(--border-2); background: #222934; color: var(--text-2); padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  .f.on { border-color: var(--accent); background: var(--accent-soft); color: #fff; }
+
+  .list { flex: 1; min-height: 0; overflow-y: auto; }
+  .list::-webkit-scrollbar { width: 8px; }
+  .list::-webkit-scrollbar-thumb { background: #353f4f; border-radius: 8px; border: 2px solid var(--bg); }
+  .sep { padding: 6px 12px; font-size: 11px; font-weight: 600; color: var(--muted); background: var(--panel-2); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--line); }
+  .fish { border-bottom: 1px solid var(--line); }
+  .row { display: flex; align-items: center; gap: 9px; padding: 7px 12px; cursor: pointer; }
+  .row:hover { background: #222934; }
+  .fish.open .row { background: #242c38; }
+  .ico { width: 10px; height: 10px; border-radius: 2px; transform: rotate(45deg); flex: none; background: var(--r0); }
+  .ico.no { background: transparent; border: 1.5px solid #4a5568; }
+  .g { flex: 1; min-width: 0; }
+  .t1 { font-weight: 600; color: var(--text); }
+  .s { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .s em { font-style: normal; color: #9fd3f1; }
+  .when { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted); }
+  .when.dia { color: #e9c46a; } .when.noite { color: #9db4ff; }
+  .det { display: none; padding: 2px 12px 10px 31px; }
+  .fish.open .det { display: block; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin: 4px 0 8px; font-size: 11.5px; }
+  .kv span { color: var(--muted); } .kv b { color: var(--text-2); font-weight: 600; }
+  .lbl { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; margin: 8px 0 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { padding: 2px 7px; border-radius: 3px; background: #1e2530; border: 1px solid var(--border-2); color: var(--text-2); font-size: 11.5px; }
+  .chip.fav { border-color: rgba(49,174,238,.65); background: var(--accent-soft); color: #fff; }
+  .chip.weak { color: var(--muted); border-color: var(--border); background: transparent; }
+  .chip small { color: var(--muted); font-size: 10.5px; margin-left: 3px; }
+  .lure { display: flex; gap: 6px; align-items: baseline; font-size: 11.5px; padding: 1px 0; }
+  .lure b { color: var(--text); font-weight: 600; min-width: 74px; }
+  .lure span { color: var(--muted); }
+  .lure.fav b { color: #9fd3f1; }
+  .empty { padding: 16px 12px; color: var(--faint); }
+  .foot { flex: none; padding: 7px 12px; border-top: 1px solid var(--border); background: var(--title); color: var(--faint); font-size: 11px; display: flex; gap: 6px; align-items: center; }
+  kbd { font: 600 10.5px "Segoe UI", sans-serif; padding: 0 5px; border-radius: 3px; background: #1b212b; border: 1px solid var(--border-2); color: var(--text-2); }
+</style>
+</head>
+<body>
+<div class="head" id="head">
+  <div class="mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"><path d="M3 9h18v11H3zM8 9V5h8v4M3 13h18M11 13v3h2v-3"/></svg></div>
+  <b>Tacklebox</b>
+  <select id="reserve"></select>
+  <button class="x" id="hide" title="Esconder (Ctrl+Shift+G)"><svg width="11" height="11" viewBox="0 0 11 11"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.3"/></svg></button>
+</div>
+<div class="now" id="now"><div class="empty" style="padding:0">Sem capturas ainda.</div></div>
+<div class="prog" id="prog"></div>
+<div class="filters" id="filters">
+  <button class="f on" data-f="all">Todos</button>
+  <button class="f" data-f="missing">Faltam</button>
+  <button class="f" data-f="dia">Dia</button>
+  <button class="f" data-f="noite">Noite</button>
+</div>
+<div class="list" id="list"><div class="empty">Lendo as tabelas do jogo…</div></div>
+<div class="foot"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> mostra e esconde · arraste pelo topo</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const RANKS = ["Juvenil", "Bronze", "Prata", "Ouro", "Diamante", "Lendário"];
+const RANKC = ["var(--r0)", "var(--r1)", "var(--r2)", "var(--r3)", "var(--r4)", "var(--r5)"];
+const SUN = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
+const MOON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+let guide = null, stats = null, filter = "all", open = "", choice = "auto";
+
+const nf = (v, d = 0) => (v || 0).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const kg = (v) => v >= 0.9995 ? nf(v, 2) + " kg" : nf(v * 1000) + " g";
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const range = (a, b, u) => a === b ? nf(a, a % 1 ? 1 : 0) + u : `${nf(a, a % 1 ? 1 : 0)}–${nf(b, b % 1 ? 1 : 0)}${u}`;
+function ago(ts) {
+  const d = Date.now() / 1000 - ts;
+  if (d < 60) return "agora";
+  if (d < 3600) return "há " + Math.floor(d / 60) + " min";
+  if (d < 86400) return "há " + Math.floor(d / 3600) + " h";
+  return "há " + Math.floor(d / 86400) + " d";
+}
+const topRank = (s) => { let t = -1; (s && s.byRank || []).forEach((v, i) => { if (v) t = i; }); return t; };
+
+$("#head").addEventListener("mousedown", (e) => { if (e.button === 0 && !e.target.closest("button,select")) ovWin("drag"); });
+$("#hide").onclick = () => ovWin("hide");
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+$("#reserve").onchange = (e) => { choice = e.target.value; open = ""; render(); };
+$("#filters").onclick = (e) => {
+  const b = e.target.closest("[data-f]"); if (!b) return;
+  filter = b.dataset.f;
+  document.querySelectorAll(".f").forEach(x => x.classList.toggle("on", x === b));
+  render();
+};
+$("#list").onclick = (e) => {
+  const r = e.target.closest(".row"); if (!r) return;
+  const id = r.parentElement.dataset.id;
+  open = open === id ? "" : id;
+  render();
+};
+
+const lastCatch = () => stats && stats.ok && (stats.catches || [])[0];
+function world() {
+  if (choice !== "auto") return choice;
+  const c = lastCatch();
+  return c ? c.world : guide && guide.reserves[0] && guide.reserves[0].world;
+}
+
+function render() {
+  if (!guide) return;
+  if (!guide.ok) { $("#list").innerHTML = `<div class="empty">${esc(guide.error || "Guia indisponível.")}</div>`; return; }
+  const c = lastCatch();
+  const cr = c && guide.reserves.find(r => r.world === c.world);
+  $("#reserve").innerHTML = `<option value="auto">Auto${cr ? " · " + esc(cr.name) : ""}</option>` +
+    guide.reserves.map(r => `<option value="${r.world}">${esc(r.name)}</option>`).join("");
+  $("#reserve").value = choice;
+
+  $("#now").innerHTML = c ? `<div class="ico" style="width:12px;height:12px;background:${RANKC[c.rank] || RANKC[0]}"></div>
+      <div><div class="k">Última captura · ${ago(c.date)}</div><div class="t1">${esc(c.species)}</div></div>
+      <div class="side"><b>${kg(c.weight)}</b><span style="color:${RANKC[c.rank]};font-weight:600;font-size:11.5px">${RANKS[c.rank] || ""}</span></div>`
+    : `<div class="empty" style="padding:0">Sem capturas ainda.</div>`;
+
+  const res = guide.reserves.find(r => r.world === world()) || guide.reserves[0];
+  const idx = {};
+  if (stats && stats.ok) (stats.species || []).forEach(s => { if (s.world === res.world) idx[s.speciesId] = s; });
+  const normal = res.fish.filter(f => !f.legendary);
+  const got = normal.filter(f => (idx[f.speciesId] || {}).caught).length;
+  $("#prog").innerHTML = `<span>${esc(res.name)}</span><div class="bar"><i style="width:${normal.length ? got * 100 / normal.length : 0}%"></i></div><span class="num">${got}/${normal.length} espécies</span>`;
+
+  const keep = (f) => filter === "all" || (filter === "missing" ? !f.legendary && !(idx[f.speciesId] || {}).caught : f.time === filter);
+  const item = (f) => {
+    const st = f.legendary ? null : idx[f.speciesId];
+    const r = f.legendary ? 5 : st && st.caught ? topRank(st) : -1;
+    const fav = f.baits.filter(b => b.tier === 0 && b.kind !== "ceva").map(b => b.name);
+    const favL = [...f.lures.filter(l => l.tier === 0).map(l => l.name), ...f.baits.filter(b => b.tier === 0 && b.kind === "ceva").map(b => b.name)];
+    const when = f.time === "dia" ? `<span class="when dia">${SUN}</span>` : f.time === "noite" ? `<span class="when noite">${MOON}</span>` : "";
+    const baits = [0, 1, 2].map(t => f.baits.filter(b => b.tier === t)
+      .map(b => `<span class="chip${t === 0 ? " fav" : t === 2 ? " weak" : ""}">${esc(b.name)}<small>${b.kind}</small></span>`).join("")).join("");
+    const lures = f.lures.map(l => `<div class="lure${l.tier === 0 ? " fav" : ""}"><b>${esc(l.name)}</b><span>${esc(l.styles.join(", "))}</span></div>`).join("");
+    const det = open !== f.id ? "" : `<div class="det">
+        <div class="kv">
+          <span>Profundidade <b>${range(f.depthMin, f.depthMax, " m")}</b></span>
+          ${f.legendary ? `<span>Peso <b>${kg(f.kgMax[0])}</b></span>` : `<span>Água <b>${range(f.tempMin, f.tempMax, " °C")}</b></span>`}
+          ${f.legendary ? "" : `<span>Diamante <b>${kg(f.kgMax[3])}+</b></span><span>${esc(f.current)}</span>`}
+        </div>
+        ${f.habitats.length ? `<div class="lbl">Onde</div><div class="chips">${f.habitats.map(h => `<span class="chip">${esc(h.name)}</span>`).join("")}</div>` : ""}
+        <div class="lbl">Iscas</div><div class="chips">${baits || `<span class="s">nenhuma</span>`}</div>
+        ${lures ? `<div class="lbl">Artificiais</div>${lures}` : ""}
+        ${f.traits.length ? `<div class="lbl">Comportamento</div><div class="s" style="white-space:normal">${f.traits.map(t => esc(t.name)).join(" · ")}</div>` : ""}
+      </div>`;
+    return `<div class="fish${open === f.id ? " open" : ""}" data-id="${esc(f.id)}"><div class="row" role="button" aria-label="${esc(f.name)}">
+        <div class="ico${r < 0 ? " no" : ""}" ${r >= 0 ? `style="background:${RANKC[r]}"` : ""}></div>
+        <div class="g"><div class="t1">${esc(f.name)}</div><div class="s">${range(f.depthMin, f.depthMax, " m")} · <em>${esc([...fav, ...favL].slice(0, 3).join(", ") || "—")}</em></div></div>
+        ${when}</div>${det}</div>`;
+  };
+  const list = res.fish.filter(keep);
+  const n = list.filter(f => !f.legendary), l = list.filter(f => f.legendary);
+  $("#list").innerHTML = list.length ? n.map(item).join("") + (l.length ? `<div class="sep">Lendários</div>` + l.map(item).join("") : "")
+    : `<div class="empty">${filter === "missing" ? "Você já pegou todas as espécies daqui!" : "Nenhum peixe neste filtro."}</div>`;
+}
+
+window.onGuide = (g) => { guide = g; render(); };
+window.onStats = (s) => { stats = s; render(); };
+window.onShow = () => render();
+(async () => {
+  const g = await getGuide(); if (g) guide = g;
+  const s = await getStats(); if (s) stats = s;
+  render();
+  setInterval(render, 60000);
+})();
+</script>
+</body>
+</html>

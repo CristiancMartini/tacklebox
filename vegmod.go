@@ -213,6 +213,8 @@ func findEntries(gameDir string, want map[uint64]string) (map[string]arcEntry, e
 	for _, sub := range []string{"initial", "supplemental"} {
 		dir := filepath.Join(gameDir, "archives_win64", sub)
 		tabsFiles, _ := filepath.Glob(filepath.Join(dir, "game*.tab"))
+		// o jogo carrega game0, game1, game2... e o último vence; a ordem do Glob é alfabética
+		sort.SliceStable(tabsFiles, func(i, j int) bool { return tabIndex(tabsFiles[i]) < tabIndex(tabsFiles[j]) })
 		for _, tp := range tabsFiles {
 			b, err := os.ReadFile(tp)
 			if err != nil || len(b) < 0x20 || string(b[:4]) != "TAB\x00" || isOwnTab(b, want) {
@@ -247,6 +249,22 @@ func findEntries(gameDir string, want map[uint64]string) (map[string]arcEntry, e
 		}
 	}
 	return found, nil
+}
+
+// tabIndex devolve o N de ".../gameN.tab" (ou -1).
+func tabIndex(path string) int {
+	n := 0
+	digits := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), "game"), ".tab")
+	if digits == "" {
+		return -1
+	}
+	for _, c := range digits {
+		if c < '0' || c > '9' {
+			return -1
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
 }
 
 func readArcEntry(e arcEntry) ([]byte, error) {

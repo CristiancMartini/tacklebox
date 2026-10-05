@@ -40,7 +40,7 @@ func configPath() string {
 	if err != nil {
 		dir = os.TempDir()
 	}
-	return filepath.Join(dir, "AnglerOtimizador", "config.json")
+	return filepath.Join(dir, "Tacklebox", "config.json")
 }
 
 func loadOptions() Options {
