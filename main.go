@@ -37,6 +37,8 @@ var (
 	flagOverlayTeste = flag.Bool("overlay-sempre", false, "mostra o overlay mesmo sem o jogo em primeiro plano (testes)")
 	flagTextura      = flag.String("textura", "", "salva uma textura dos pacotes do jogo (caminho) como textura.png (diagnóstico)")
 	flagMapa         = flag.String("mapa", "", "salva o mapa de uma reserva (código, ex.: belisama) como mapa.jpg (diagnóstico)")
+	flagTesteG       = flag.Bool("teste-sobre-jogo", false, "abre o modo overlay (como o Ctrl+Shift+G) 4 s depois de iniciar (testes)")
+	flagJogoTeste    = flag.String("jogo-teste", "", "usa outro processo (ex.: notepad.exe) no lugar do jogo (testes)")
 	flagFoto         = flag.String("foto", "", "salva a foto de um peixe (nome do ícone) como PNG na pasta atual (diagnóstico)")
 )
 

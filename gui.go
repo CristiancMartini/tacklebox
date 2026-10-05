@@ -46,6 +46,7 @@ func runGUI(env Env) error {
 	defer w.Destroy()
 	hwnd := uintptr(w.Window())
 	makeFrameless(hwnd, 1240, 800)
+	mainHwnd.Store(uint64(hwnd))
 
 	// As funções chamadas pelo JavaScript rodam na thread da janela; o trabalho
 	// pesado vai para goroutines e o resultado volta por Dispatch.
@@ -54,6 +55,9 @@ func runGUI(env Env) error {
 		w.Dispatch(func() { w.Eval("window." + fn + " && window." + fn + "(" + string(b) + ")") })
 	}
 	push := func(level, msg string) { call("onLog", []string{level, msg}) }
+	mainOverlayMu.Lock()
+	mainOverlayCb = func(on bool) { call("onOverlayMode", on) }
+	mainOverlayMu.Unlock()
 
 	// overlay (janela própria, criada escondida) e o guia de peixes
 	var shared sync.Mutex
@@ -183,7 +187,10 @@ func runGUI(env Env) error {
 		shared.Lock()
 		ov = o
 		shared.Unlock()
-		o.setSide(loadOptions().HudSide == "esquerda")
+		o.mu.Lock()
+		o.left = loadOptions().HudSide == "esquerda"
+		o.pos = loadHudPos()
+		o.mu.Unlock()
 		go o.follow()
 		bad := listenHotkeys([]Hotkey{
 			{Key: 'G', Name: "Ctrl+Shift+G", Fn: func() { w.Dispatch(func() { toggleOverGame(hwnd) }) }},
@@ -326,9 +333,17 @@ func runGUI(env Env) error {
 			minimizeWindow(hwnd)
 		case "close":
 			closeWindow(hwnd)
+		case "back": // sai do modo overlay e volta ao jogo
+			closeOverGame(hwnd, true)
 		}
 	})
 
+	if *flagTesteG {
+		go func() {
+			time.Sleep(4 * time.Second)
+			w.Dispatch(func() { toggleOverGame(hwnd) })
+		}()
+	}
 	w.SetHtml(uiHTML)
 	w.Run()
 	return nil

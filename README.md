@@ -43,8 +43,8 @@ Tudo vem das tabelas do próprio jogo, então cobre todas as reservas e acompanh
 
 Dois atalhos, que funcionam com o jogo em foco:
 
-- **Ctrl+Shift+G** abre o Tacklebox completo por cima do jogo (mapa, guia, missões, estatísticas). Aperte de novo, ou clique no jogo, para voltar.
-- **Ctrl+Shift+X** liga e desliga o **painel fixo** na lateral, que acompanha você ao vivo. O mouse atravessa o painel, então ele nunca atrapalha a mira nem os cliques no jogo.
+- **Ctrl+Shift+G** abre o Tacklebox completo como overlay por cima do jogo (mapa, guia, missões, estatísticas): sem janela na barra de tarefas, levemente translúcido e arrastável pela barra de cima. Aperte de novo, clique em "Voltar ao jogo" ou clique no jogo para ele sumir.
+- **Ctrl+Shift+X** liga e desliga o **painel fixo** na lateral, que acompanha você ao vivo. Durante o jogo o mouse atravessa o painel, então ele nunca atrapalha a mira nem os cliques. Com o Tacklebox aberto (Ctrl+Shift+G), o painel fica arrastável e a posição é lembrada.
 
 O painel fixo mostra:
 
@@ -53,7 +53,7 @@ O painel fixo mostra:
 - **Peixes aqui:** as espécies que vivem no lago ou rio onde você está (o jogo divide cada reserva em corpos d'água, cada um com a sua lista), com foto, iscas favoritas, as que faltam primeiro e seta e distância até o ponto mais perto de cada uma (áreas das missões de pesca, desafios de local, esconderijos dos lendários e lugares onde você já pegou aquele peixe).
 - Direção para onde você está olhando e quantos peixes pegou hoje.
 
-O painel some sozinho quando você sai do jogo (alt-tab) e volta quando você volta. O lado (direita ou esquerda) se escolhe no Guia.
+O painel some sozinho quando você sai do jogo (alt-tab) e volta quando você volta. O lado padrão (direita ou esquerda) se escolhe no Guia.
 
 - Não injeta nada no jogo: são janelas normais do Windows por cima do jogo.
 - Posição, reserva e missão são lidas da memória do jogo em **modo somente leitura** (nada é alterado).

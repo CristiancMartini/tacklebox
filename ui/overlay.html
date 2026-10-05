@@ -63,6 +63,12 @@
   .empty { padding: 14px 12px; color: var(--faint); }
   .foot { flex: none; padding: 5px 10px; border-top: 1px solid var(--border); background: var(--title); color: var(--faint); font-size: 10.5px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
   kbd { font: 600 10px "Segoe UI", sans-serif; padding: 0 4px; border-radius: 3px; background: #1b212b; border: 1px solid var(--border-2); color: var(--text-2); }
+  /* modo de arrastar: com o Tacklebox aberto sobre o jogo */
+  body.edit { border: 2px dashed var(--accent); cursor: move; }
+  body.edit .foot { color: #fff; background: var(--accent); }
+  .foot .edit-tip { display: none; }
+  body.edit .foot .edit-tip { display: inline; }
+  body.edit .foot .play-tip { display: none; }
 </style>
 </head>
 <body>
@@ -76,7 +82,7 @@
 <div class="mini" id="mini" style="display:none"><canvas id="miniCanvas"></canvas></div>
 <div class="strip" id="strip"></div>
 <div class="list" id="list"><div class="empty">Lendo as tabelas do jogo…</div></div>
-<div class="foot"><kbd>Ctrl+Shift+X</kbd> esconde · <kbd>Ctrl+Shift+G</kbd> abre o Tacklebox</div>
+<div class="foot"><span class="play-tip"><kbd>Ctrl+Shift+X</kbd> esconde · <kbd>Ctrl+Shift+G</kbd> abre o Tacklebox</span><span class="edit-tip">Arraste para mudar o painel de lugar</span></div>
 
 <script>
 // Painel fixo: só mostra (o mouse atravessa a janela). Para interagir, Ctrl+Shift+G abre o Tacklebox.
@@ -100,6 +106,9 @@ const topRank = (s) => { let t = -1; (s && s.byRank || []).forEach((v, i) => { i
 const cardinal = (deg) => DIRS[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 const bearing = (x, z) => (Math.atan2(x - live.x, -(z - live.z)) * 180 / Math.PI + 360) % 360;
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+// arrastar: só no modo de edição (no jogo o mouse atravessa o painel)
+document.addEventListener("mousedown", (e) => { if (e.button === 0 && document.body.classList.contains("edit")) ovWin("drag"); });
+window.onEdit = (on) => document.body.classList.toggle("edit", !!on);
 
 const lastCatch = () => stats && stats.ok && (stats.catches || [])[0];
 function world() {

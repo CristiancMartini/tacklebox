@@ -204,8 +204,16 @@ func findProcess(name string) (uint32, bool) {
 	return 0, false
 }
 
+// gameProcName é o executável do jogo (ou o substituto dos testes).
+func gameProcName() string {
+	if *flagJogoTeste != "" {
+		return *flagJogoTeste
+	}
+	return gameExeName
+}
+
 func gameRunning() bool {
-	_, r := findProcess(gameExeName)
+	_, r := findProcess(gameProcName())
 	return r
 }
 
@@ -228,7 +236,7 @@ func launchGame(priority bool, log logFn) {
 	}
 	deadline := time.Now().Add(5 * time.Minute)
 	for time.Now().Before(deadline) {
-		if pid, running := findProcess(gameExeName); running {
+		if pid, running := findProcess(gameProcName()); running {
 			time.Sleep(15 * time.Second)
 			h, err := windows.OpenProcess(windows.PROCESS_SET_INFORMATION, false, pid)
 			if err == nil {

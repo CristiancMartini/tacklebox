@@ -62,7 +62,6 @@ var (
 	procSetForeground = user32.NewProc("SetForegroundWindow")
 	procIsIconic      = user32.NewProc("IsIconic")
 	lastGameWindow    atomic.Uint64
-	summonedMain      atomic.Uint64 // janela principal trazida por Ctrl+Shift+G (0 = não)
 	procWindowPid     = user32.NewProc("GetWindowThreadProcessId")
 	procGetWindowRect = user32.NewProc("GetWindowRect")
 	procGetDpiMonitor = windows.NewLazySystemDLL("shcore.dll").NewProc("GetDpiForMonitor")
@@ -96,6 +95,8 @@ type overlay struct {
 	enabled bool // ligado pelo atalho ou pelo botão
 	moved   bool // o jogador arrastou: respeita a posição escolhida
 	left    bool // painel do lado esquerdo do jogo
+	edit    bool // arrastável (Tacklebox aberto sobre o jogo); fora disso o mouse atravessa
+	pos     hudPosition
 	onState func(enabled bool)
 }
 
@@ -175,7 +176,9 @@ func (o *overlay) visible() bool {
 func (o *overlay) setSide(left bool) {
 	o.mu.Lock()
 	o.left = left
+	o.pos = hudPosition{}
 	o.mu.Unlock()
+	saveHudPos(hudPosition{})
 	o.w.Dispatch(func() {
 		if o.visible() {
 			procShowWindow.Call(o.hwnd, swHide) // o follow mostra de novo no lugar novo
@@ -225,7 +228,7 @@ func currentGamePid() uint32 {
 	gamePidMu.Lock()
 	defer gamePidMu.Unlock()
 	if time.Since(gamePidSeen) > 3*time.Second {
-		gamePid, _ = findProcess(gameExeName)
+		gamePid, _ = findProcess(gameProcName())
 		gamePidSeen = time.Now()
 	}
 	return gamePid
@@ -237,13 +240,23 @@ func (o *overlay) update() {
 	procWindowPid.Call(fg, uintptr(unsafe.Pointer(&pid)))
 	game := currentGamePid()
 	gameFront := game != 0 && pid == game
-	// o Tacklebox aberto por Ctrl+Shift+G sai da frente quando o jogador volta ao jogo
+	// o Tacklebox aberto por Ctrl+Shift+G some quando o jogador volta ao jogo
 	if h := summonedMain.Load(); h != 0 && gameFront {
-		summonedMain.Store(0)
-		procSetWindowPos.Call(uintptr(h), hwndNoTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
-		procShowWindow.Call(uintptr(h), swMinimize)
+		closeOverGame(uintptr(h), false)
 	}
-	want := o.isEnabled() && (gameFront || fg == o.hwnd || game == 0 || *flagOverlayTeste)
+	// jogo fechado: a janela principal escondida volta ao normal
+	if game == 0 && hiddenForGame.Swap(false) {
+		if h := mainHwnd.Load(); h != 0 {
+			procShowWindow.Call(uintptr(h), swRestore)
+		}
+	}
+	menu := summonedMain.Load() != 0
+	o.setEdit(menu || game == 0)
+	// com o Tacklebox aberto sobre o jogo, o painel fica acima dele (para ver e arrastar)
+	if menu && o.visible() {
+		procSetWindowPos.Call(o.hwnd, hwndTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
+	}
+	want := o.isEnabled() && (gameFront || fg == o.hwnd || menu || game == 0 || *flagOverlayTeste)
 	if want == o.visible() {
 		return
 	}
@@ -256,13 +269,45 @@ func (o *overlay) update() {
 	})
 }
 
+// setEdit liga o modo de arrastar: a janela passa a receber o mouse. Ao sair dele,
+// a posição escolhida é guardada.
+func (o *overlay) setEdit(on bool) {
+	o.mu.Lock()
+	if o.edit == on {
+		o.mu.Unlock()
+		return
+	}
+	o.edit = on
+	o.mu.Unlock()
+	o.w.Dispatch(func() {
+		ex := exStyle(o.hwnd)
+		if on {
+			ex &^= wsExTransparent
+		} else {
+			ex |= wsExTransparent
+		}
+		procSetWindowLong.Call(o.hwnd, gwlExStyle, ex)
+		if !on && o.visible() {
+			var r windows.Rect
+			procGetWindowRect.Call(o.hwnd, uintptr(unsafe.Pointer(&r)))
+			o.mu.Lock()
+			if o.moved {
+				o.pos = hudPosition{Set: true, X: r.Left, Y: r.Top}
+				saveHudPos(o.pos)
+			}
+			o.mu.Unlock()
+		}
+		o.call("onEdit", on)
+	})
+}
+
 // show mostra sem ativar, na lateral direita da janela do jogo (ou do monitor),
 // a não ser que o jogador tenha arrastado o overlay para outro lugar.
 func (o *overlay) show(anchor uintptr) {
 	flags := uintptr(swpNoActivate | swpShowWindow)
 	var x, y, w, h int32
 	o.mu.Lock()
-	moved := o.moved
+	moved, pos := o.moved, o.pos
 	o.mu.Unlock()
 	if moved {
 		flags |= swpNoMove | swpNoSize
@@ -300,6 +345,10 @@ func (o *overlay) show(anchor uintptr) {
 		}
 		o.mu.Unlock()
 		y = r.Top + (r.Bottom-r.Top-h)/2
+		if pos.Set { // lugar escolhido pelo jogador, sempre dentro da área do jogo/monitor
+			x = max(r.Left, min(pos.X, r.Right-w))
+			y = max(r.Top, min(pos.Y, r.Bottom-h))
+		}
 	}
 	procSetWindowPos.Call(o.hwnd, hwndTopmost, uintptr(x), uintptr(y), uintptr(w), uintptr(h), flags)
 	o.call("onShow", true)
@@ -344,30 +393,4 @@ func listenHotkeys(keys []Hotkey) []string {
 		}
 	}()
 	return <-failed
-}
-
-// toggleOverGame traz a janela principal para a frente do jogo (sempre por cima)
-// ou, se ela já estiver na frente, minimiza e devolve o foco ao jogo.
-func toggleOverGame(hwnd uintptr) {
-	fg, _, _ := procGetForeground.Call()
-	if fg == hwnd {
-		summonedMain.Store(0)
-		procSetWindowPos.Call(hwnd, hwndNoTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
-		procShowWindow.Call(hwnd, swMinimize)
-		if g := lastGameWindow.Load(); g != 0 {
-			procSetForeground.Call(uintptr(g))
-		}
-		return
-	}
-	var pid uint32
-	procWindowPid.Call(fg, uintptr(unsafe.Pointer(&pid)))
-	if game := currentGamePid(); game != 0 && pid == game {
-		lastGameWindow.Store(uint64(fg))
-	}
-	if r, _, _ := procIsIconic.Call(hwnd); r != 0 {
-		procShowWindow.Call(hwnd, swRestore)
-	}
-	procSetWindowPos.Call(hwnd, hwndTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpShowWindow)
-	procSetForeground.Call(hwnd)
-	summonedMain.Store(uint64(hwnd))
 }
