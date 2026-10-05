@@ -347,6 +347,12 @@
   body.mapmode .maptitle { display: block; }
   body.mapmode #tabs, body.mapmode .subbar, body.mapmode .aside, body.mapmode #pillGame { display: none; }
   body.mapmode .main.full { padding: 0; }
+
+  /* bordas e cantos: redimensionar */
+  html.rs-ns, html.rs-ns * { cursor: ns-resize !important; }
+  html.rs-ew, html.rs-ew * { cursor: ew-resize !important; }
+  html.rs-nwse, html.rs-nwse * { cursor: nwse-resize !important; }
+  html.rs-nesw, html.rs-nesw * { cursor: nesw-resize !important; }
 </style>
 </head>
 <body>
@@ -670,6 +676,32 @@ $("#titlebar").addEventListener("mousedown", (e) => { if (e.button === 0 && !e.t
 $("#wMin").onclick = () => win("min");
 $("#wClose").onclick = () => win("close");
 $("#wBack").onclick = () => win("back");
+// bordas e cantos: redimensionar a janela (a janela não tem moldura do Windows)
+(function () {
+  const M = 6;
+  const CUR = { t: "ns", b: "ns", l: "ew", r: "ew", tl: "nwse", br: "nwse", tr: "nesw", bl: "nesw" };
+  const edgeAt = (x, y) => {
+    let e = "";
+    if (y < M) e += "t"; else if (y > innerHeight - M) e += "b";
+    if (x < M) e += "l"; else if (x > innerWidth - M) e += "r";
+    return e;
+  };
+  const setCursor = (ed) => {
+    const h = document.documentElement;
+    h.classList.remove("rs-ns", "rs-ew", "rs-nwse", "rs-nesw");
+    if (ed) h.classList.add("rs-" + CUR[ed]);
+  };
+  document.addEventListener("mousemove", (e) => setCursor(true && e.buttons === 0 ? edgeAt(e.clientX, e.clientY) : ""), true);
+  document.addEventListener("mouseleave", () => setCursor(""));
+  document.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 || !(true)) return;
+    const ed = edgeAt(e.clientX, e.clientY);
+    if (!ed) return;
+    e.preventDefault(); e.stopPropagation();
+    win("resize:" + ed);
+  }, true);
+})();
+
 let tabBeforeMap = "";
 window.onOverlayMode = (mode) => {
   const b = document.body, wasMap = b.classList.contains("mapmode");

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	webview2 "github.com/jchv/go-webview2"
+	"golang.org/x/sys/windows"
 )
 
 //go:embed ui/index.html
@@ -45,7 +46,8 @@ func runGUI(env Env) error {
 	}
 	defer w.Destroy()
 	hwnd := uintptr(w.Window())
-	makeFrameless(hwnd, 1240, 800)
+	mw, mh := loadMainSize()
+	makeFrameless(hwnd, mw, mh)
 	mainHwnd.Store(uint64(hwnd))
 
 	// As funções chamadas pelo JavaScript rodam na thread da janela; o trabalho
@@ -174,6 +176,18 @@ func runGUI(env Env) error {
 					dragWindow(o.hwnd)
 				case "hide":
 					go o.setEnabled(false)
+				default:
+					o.mu.Lock()
+					edit := o.edit
+					o.mu.Unlock()
+					if e, ok := strings.CutPrefix(action, "resize:"); ok && edit {
+						s := dpiScale(o.hwnd)
+						resizeWindow(o.hwnd, e, 280*s/96, 300*s/96, func(r windows.Rect) {
+							o.mu.Lock()
+							o.moved = true
+							o.mu.Unlock()
+						})
+					}
 				}
 			})
 		})
@@ -336,6 +350,16 @@ func runGUI(env Env) error {
 			closeWindow(hwnd)
 		case "back": // sai do modo overlay e volta ao jogo
 			closeOverGame(hwnd, true)
+		default:
+			if edge, ok := strings.CutPrefix(action, "resize:"); ok {
+				debugf("redimensionar janela principal: %s", edge)
+				s := dpiScale(hwnd)
+				resizeWindow(hwnd, edge, 900*s/96, 560*s/96, func(r windows.Rect) {
+					if summonedMain.Load() == 0 { // tamanho normal fica salvo para a próxima vez
+						saveMainSize(r, s)
+					}
+				})
+			}
 		}
 	})
 

@@ -69,6 +69,12 @@
   .foot .edit-tip { display: none; }
   body.edit .foot .edit-tip { display: inline; }
   body.edit .foot .play-tip { display: none; }
+
+  /* bordas e cantos: redimensionar */
+  html.rs-ns, html.rs-ns * { cursor: ns-resize !important; }
+  html.rs-ew, html.rs-ew * { cursor: ew-resize !important; }
+  html.rs-nwse, html.rs-nwse * { cursor: nwse-resize !important; }
+  html.rs-nesw, html.rs-nesw * { cursor: nesw-resize !important; }
 </style>
 </head>
 <body>
@@ -82,7 +88,7 @@
 <div class="mini" id="mini" style="display:none"><canvas id="miniCanvas"></canvas></div>
 <div class="strip" id="strip"></div>
 <div class="list" id="list"><div class="empty">Lendo as tabelas do jogo…</div></div>
-<div class="foot"><span class="play-tip"><kbd>Ctrl+Shift+X</kbd> esconde · <kbd>Ctrl+Shift+G</kbd> abre o Tacklebox</span><span class="edit-tip">Arraste para mudar o painel de lugar</span></div>
+<div class="foot"><span class="play-tip"><kbd>Ctrl+Shift+X</kbd> esconde · <kbd>Ctrl+Shift+G</kbd> abre o Tacklebox</span><span class="edit-tip">Arraste para mover · bordas e cantos mudam o tamanho</span></div>
 
 <script>
 // Painel fixo: só mostra (o mouse atravessa a janela). Para interagir, Ctrl+Shift+G abre o Tacklebox.
@@ -109,6 +115,32 @@ document.addEventListener("contextmenu", (e) => e.preventDefault());
 // arrastar: só no modo de edição (no jogo o mouse atravessa o painel)
 document.addEventListener("mousedown", (e) => { if (e.button === 0 && document.body.classList.contains("edit")) ovWin("drag"); });
 window.onEdit = (on) => document.body.classList.toggle("edit", !!on);
+// bordas e cantos: redimensionar a janela (a janela não tem moldura do Windows)
+(function () {
+  const M = 6;
+  const CUR = { t: "ns", b: "ns", l: "ew", r: "ew", tl: "nwse", br: "nwse", tr: "nesw", bl: "nesw" };
+  const edgeAt = (x, y) => {
+    let e = "";
+    if (y < M) e += "t"; else if (y > innerHeight - M) e += "b";
+    if (x < M) e += "l"; else if (x > innerWidth - M) e += "r";
+    return e;
+  };
+  const setCursor = (ed) => {
+    const h = document.documentElement;
+    h.classList.remove("rs-ns", "rs-ew", "rs-nwse", "rs-nesw");
+    if (ed) h.classList.add("rs-" + CUR[ed]);
+  };
+  document.addEventListener("mousemove", (e) => setCursor(document.body.classList.contains("edit") && e.buttons === 0 ? edgeAt(e.clientX, e.clientY) : ""), true);
+  document.addEventListener("mouseleave", () => setCursor(""));
+  document.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 || !(document.body.classList.contains("edit"))) return;
+    const ed = edgeAt(e.clientX, e.clientY);
+    if (!ed) return;
+    e.preventDefault(); e.stopPropagation();
+    ovWin("resize:" + ed);
+  }, true);
+})();
+
 
 const lastCatch = () => stats && stats.ok && (stats.catches || [])[0];
 function world() {

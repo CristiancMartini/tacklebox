@@ -55,6 +55,8 @@ const (
 var (
 	curMode   string       // modo aberto ("" = nenhum); protegido por mainOverlayMu
 	appNormal windows.Rect // tamanho/posição normais da janela antes do overlay
+	appSize   [2]int32     // tamanho do Tacklebox no overlay (0 = o normal)
+	mapRect   windows.Rect // lugar e tamanho do mapa grande escolhidos pelo jogador
 )
 
 // toggleOverGame é o Ctrl+Shift+G: abre o Tacklebox sobre o jogo; se algo já
@@ -68,6 +70,7 @@ func toggleMapOverGame(hwnd uintptr) { toggleMode(hwnd, modeMap) }
 func toggleMode(hwnd uintptr, mode string) {
 	mainOverlayMu.Lock()
 	cur := curMode
+	debugf("atalho %s com modo atual %q", mode, cur)
 	page := mainPageCb
 	mainOverlayMu.Unlock()
 	if cur != "" {
@@ -85,7 +88,7 @@ func toggleMode(hwnd uintptr, mode string) {
 			return
 		}
 		procShowWindow.Call(hwnd, swRestore)
-		procSetForeground.Call(hwnd)
+		forceForeground(hwnd)
 		if mode == modeMap && page != nil {
 			page("goTab", "mapa")
 		}
@@ -118,6 +121,10 @@ func openOverGame(hwnd uintptr, mode string) {
 	}
 	x, y, set := mainOverlayPos.x, mainOverlayPos.y, mainOverlayPos.set
 	w, h := appNormal.Right-appNormal.Left, appNormal.Bottom-appNormal.Top
+	if appSize[0] > 0 {
+		w, h = appSize[0], appSize[1]
+	}
+	mr := mapRect
 	page := mainPageCb
 	mainOverlayMu.Unlock()
 
@@ -138,6 +145,9 @@ func openOverGame(hwnd uintptr, mode string) {
 		mx, my := (area.Right-area.Left)*4/100, (area.Bottom-area.Top)*5/100
 		x, y = area.Left+mx, area.Top+my
 		w, h = area.Right-area.Left-2*mx, area.Bottom-area.Top-2*my
+		if mr.Right > mr.Left {
+			x, y, w, h = mr.Left, mr.Top, mr.Right-mr.Left, mr.Bottom-mr.Top
+		}
 	} else if !set {
 		x = area.Left + (area.Right-area.Left-w)/2
 		y = area.Top + (area.Bottom-area.Top-h)/2
@@ -156,7 +166,10 @@ func openOverGame(hwnd uintptr, mode string) {
 	} else {
 		procSetWindowPos.Call(hwnd, hwndTopmost, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpShowWindow)
 	}
-	procSetForeground.Call(hwnd)
+	mainFrontSeen.Store(false)
+	forceForeground(hwnd)
+	fgNow, _, _ := procGetForeground.Call()
+	debugf("abriu %s: frente=%v", mode, fgNow == hwnd)
 	mainOverlayMu.Lock()
 	curMode = mode
 	mainOverlayMu.Unlock()
@@ -171,11 +184,16 @@ func closeOverGame(hwnd uintptr, refocusGame bool) {
 	if summonedMain.Swap(0) == 0 {
 		return
 	}
+	debugf("fechou (refocusGame=%v)", refocusGame)
 	mainOverlayMu.Lock()
-	if curMode == modeApp {
-		var r windows.Rect
-		procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r)))
+	var r windows.Rect
+	procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r)))
+	switch curMode {
+	case modeApp:
 		mainOverlayPos.set, mainOverlayPos.x, mainOverlayPos.y = true, r.Left, r.Top
+		appSize = [2]int32{r.Right - r.Left, r.Bottom - r.Top}
+	case modeMap:
+		mapRect = r
 	}
 	curMode = ""
 	normal := appNormal
@@ -207,6 +225,8 @@ type hudPosition struct {
 	Set bool  `json:"set"`
 	X   int32 `json:"x"`
 	Y   int32 `json:"y"`
+	W   int32 `json:"w,omitempty"`
+	H   int32 `json:"h,omitempty"`
 }
 
 func hudPosPath() string { return filepath.Join(filepath.Dir(configPath()), "painel.json") }

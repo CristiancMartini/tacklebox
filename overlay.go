@@ -218,6 +218,11 @@ func (o *overlay) follow() {
 }
 
 var (
+	lastFgLogged   uintptr
+	gameFrontTicks int // atualizações seguidas com o jogo na frente e o overlay aberto
+)
+
+var (
 	gamePidMu   sync.Mutex
 	gamePid     uint32
 	gamePidSeen time.Time
@@ -240,9 +245,27 @@ func (o *overlay) update() {
 	procWindowPid.Call(fg, uintptr(unsafe.Pointer(&pid)))
 	game := currentGamePid()
 	gameFront := game != 0 && pid == game
+	if fg != lastFgLogged {
+		lastFgLogged = fg
+		debugf("frente agora: janela %x pid %d (jogo=%v principal=%v painel=%v)", fg, pid, gameFront, fg == uintptr(mainHwnd.Load()), fg == o.hwnd)
+	}
 	// o Tacklebox aberto por Ctrl+Shift+G some quando o jogador volta ao jogo
-	if h := summonedMain.Load(); h != 0 && gameFront {
-		closeOverGame(uintptr(h), false)
+	if h := summonedMain.Load(); h != 0 {
+		if fg == uintptr(h) {
+			mainFrontSeen.Store(true)
+		}
+		// fecha quando o jogador volta ao jogo: o jogo na frente por ~0,5 s seguidos,
+		// sem botão apertado (nunca no meio de um arraste ou redimensionamento)
+		if gameFront && mainFrontSeen.Load() && !resizing.Load() && !mouseDown() {
+			gameFrontTicks++
+		} else {
+			gameFrontTicks = 0
+		}
+		if gameFrontTicks >= 2 {
+			gameFrontTicks = 0
+			debugf("jogo voltou para a frente: fechando o overlay")
+			closeOverGame(uintptr(h), false)
+		}
 	}
 	// jogo fechado: a janela principal escondida volta ao normal
 	if game == 0 && hiddenForGame.Swap(false) {
@@ -282,9 +305,9 @@ func (o *overlay) setEdit(on bool) {
 	o.w.Dispatch(func() {
 		ex := exStyle(o.hwnd)
 		if on {
-			ex &^= wsExTransparent
+			ex &^= wsExTransparent | wsExNoActivate
 		} else {
-			ex |= wsExTransparent
+			ex |= wsExTransparent | wsExNoActivate
 		}
 		procSetWindowLong.Call(o.hwnd, gwlExStyle, ex)
 		if !on && o.visible() {
@@ -292,7 +315,7 @@ func (o *overlay) setEdit(on bool) {
 			procGetWindowRect.Call(o.hwnd, uintptr(unsafe.Pointer(&r)))
 			o.mu.Lock()
 			if o.moved {
-				o.pos = hudPosition{Set: true, X: r.Left, Y: r.Top}
+				o.pos = hudPosition{Set: true, X: r.Left, Y: r.Top, W: r.Right - r.Left, H: r.Bottom - r.Top}
 				saveHudPos(o.pos)
 			}
 			o.mu.Unlock()
@@ -345,6 +368,9 @@ func (o *overlay) show(anchor uintptr) {
 		}
 		o.mu.Unlock()
 		y = r.Top + (r.Bottom-r.Top-h)/2
+		if pos.Set && pos.W > 0 && pos.H > 0 { // tamanho escolhido pelo jogador
+			w, h = min(pos.W, r.Right-r.Left), min(pos.H, r.Bottom-r.Top)
+		}
 		if pos.Set { // lugar escolhido pelo jogador, sempre dentro da área do jogo/monitor
 			x = max(r.Left, min(pos.X, r.Right-w))
 			y = max(r.Top, min(pos.Y, r.Bottom-h))
