@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -22,18 +23,23 @@ import (
 var overlayHTML string
 
 const (
-	overlayW = 400 // largura em pixels "de CSS"
-	overlayH = 760
+	overlayW = 360 // largura em pixels "de CSS"
+	overlayH = 620
 
 	gwlExStyle      = ^uintptr(19) // GWL_EXSTYLE (-20)
 	wsExTopmost     = 0x00000008
 	wsExToolWindow  = 0x00000080
 	wsExNoActivate  = 0x08000000
+	wsExLayered     = 0x00080000
+	wsExTransparent = 0x00000020
+	lwaAlpha        = 0x2
 	swpNoActivate   = 0x0010
 	swpNoSize       = 0x0001
 	swpNoMove       = 0x0002
 	swHide          = 0
 	hwndTopmost     = ^uintptr(0) // HWND_TOPMOST (-1)
+	hwndNoTopmost   = ^uintptr(1) // HWND_NOTOPMOST (-2)
+	swRestore       = 9
 	whCBT           = 5
 	hcbtCreateWnd   = 3
 	hcbtActivate    = 5
@@ -52,6 +58,11 @@ var (
 	procRegisterHot   = user32.NewProc("RegisterHotKey")
 	procGetMessage    = user32.NewProc("GetMessageW")
 	procIsVisible     = user32.NewProc("IsWindowVisible")
+	procSetLayered    = user32.NewProc("SetLayeredWindowAttributes")
+	procSetForeground = user32.NewProc("SetForegroundWindow")
+	procIsIconic      = user32.NewProc("IsIconic")
+	lastGameWindow    atomic.Uint64
+	summonedMain      atomic.Uint64 // janela principal trazida por Ctrl+Shift+G (0 = não)
 	procWindowPid     = user32.NewProc("GetWindowThreadProcessId")
 	procGetWindowRect = user32.NewProc("GetWindowRect")
 	procGetDpiMonitor = windows.NewLazySystemDLL("shcore.dll").NewProc("GetDpiForMonitor")
@@ -84,6 +95,7 @@ type overlay struct {
 	mu      sync.Mutex
 	enabled bool // ligado pelo atalho ou pelo botão
 	moved   bool // o jogador arrastou: respeita a posição escolhida
+	left    bool // painel do lado esquerdo do jogo
 	onState func(enabled bool)
 }
 
@@ -133,7 +145,9 @@ func startOverlay(dataPath string, bind func(*overlay)) *overlay {
 		o := &overlay{w: w, hwnd: uintptr(w.Window())}
 		procShowWindow.Call(o.hwnd, swHide)
 		procSetWindowLong.Call(o.hwnd, gwlStyle, wsPopup|wsClipChildren)
-		procSetWindowLong.Call(o.hwnd, gwlExStyle, wsExTopmost|wsExToolWindow|wsExNoActivate)
+		// "atravessável": o mouse passa direto para o jogo (layered + transparent)
+		procSetWindowLong.Call(o.hwnd, gwlExStyle, wsExTopmost|wsExToolWindow|wsExNoActivate|wsExLayered|wsExTransparent)
+		procSetLayered.Call(o.hwnd, 0, 248, lwaAlpha)
 		// sem moldura a área útil muda; o WM_SIZE resultante ajusta o WebView
 		procSetWindowPos.Call(o.hwnd, 0, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoZOrder|swpNoActivate|swpFrameChanged)
 		round := uint32(2) // DWMWCP_ROUND (Windows 11)
@@ -155,6 +169,18 @@ func (o *overlay) call(fn string, v interface{}) {
 func (o *overlay) visible() bool {
 	r, _, _ := procIsVisible.Call(o.hwnd)
 	return r != 0
+}
+
+// setSide muda o lado do painel (vale na próxima vez que ele aparecer).
+func (o *overlay) setSide(left bool) {
+	o.mu.Lock()
+	o.left = left
+	o.mu.Unlock()
+	o.w.Dispatch(func() {
+		if o.visible() {
+			procShowWindow.Call(o.hwnd, swHide) // o follow mostra de novo no lugar novo
+		}
+	})
 }
 
 // toggle liga ou desliga o overlay (atalho e botões).
@@ -211,6 +237,12 @@ func (o *overlay) update() {
 	procWindowPid.Call(fg, uintptr(unsafe.Pointer(&pid)))
 	game := currentGamePid()
 	gameFront := game != 0 && pid == game
+	// o Tacklebox aberto por Ctrl+Shift+G sai da frente quando o jogador volta ao jogo
+	if h := summonedMain.Load(); h != 0 && gameFront {
+		summonedMain.Store(0)
+		procSetWindowPos.Call(uintptr(h), hwndNoTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
+		procShowWindow.Call(uintptr(h), swMinimize)
+	}
 	want := o.isEnabled() && (gameFront || fg == o.hwnd || game == 0 || *flagOverlayTeste)
 	if want == o.visible() {
 		return
@@ -262,23 +294,37 @@ func (o *overlay) show(anchor uintptr) {
 			h = max
 		}
 		x = r.Right - w - px(24)
+		o.mu.Lock()
+		if o.left {
+			x = r.Left + px(24)
+		}
+		o.mu.Unlock()
 		y = r.Top + (r.Bottom-r.Top-h)/2
 	}
 	procSetWindowPos.Call(o.hwnd, hwndTopmost, uintptr(x), uintptr(y), uintptr(w), uintptr(h), flags)
 	o.call("onShow", true)
 }
 
-// listenHotkey registra Ctrl+Shift+G para o sistema todo (funciona com o jogo em
-// foco) e chama fn a cada aperto. Devolve false se outro programa já usa o atalho.
-func listenHotkey(fn func()) bool {
-	ok := make(chan bool)
+// Hotkey é um atalho global (funciona com o jogo em foco).
+type Hotkey struct {
+	Key  rune
+	Name string
+	Fn   func()
+}
+
+// listenHotkeys registra Ctrl+Shift+<tecla> para cada atalho e devolve os nomes
+// dos que outro programa já usa.
+func listenHotkeys(keys []Hotkey) []string {
+	failed := make(chan []string)
 	go func() {
 		runtime.LockOSThread()
-		r, _, _ := procRegisterHot.Call(0, 1, modControl|modShift|modNoRepeat, 'G')
-		ok <- r != 0
-		if r == 0 {
-			return
+		var bad []string
+		for i, k := range keys {
+			if r, _, _ := procRegisterHot.Call(0, uintptr(i+1), modControl|modShift|modNoRepeat, uintptr(k.Key)); r == 0 {
+				bad = append(bad, k.Name)
+			}
 		}
+		failed <- bad
 		var msg struct {
 			hwnd    uintptr
 			message uint32
@@ -292,10 +338,36 @@ func listenHotkey(fn func()) bool {
 			if r, _, _ := procGetMessage.Call(uintptr(unsafe.Pointer(&msg)), 0, 0, 0); int32(r) <= 0 {
 				return
 			}
-			if msg.message == wmHotkey {
-				fn()
+			if msg.message == wmHotkey && msg.wParam >= 1 && int(msg.wParam) <= len(keys) {
+				keys[msg.wParam-1].Fn()
 			}
 		}
 	}()
-	return <-ok
+	return <-failed
+}
+
+// toggleOverGame traz a janela principal para a frente do jogo (sempre por cima)
+// ou, se ela já estiver na frente, minimiza e devolve o foco ao jogo.
+func toggleOverGame(hwnd uintptr) {
+	fg, _, _ := procGetForeground.Call()
+	if fg == hwnd {
+		summonedMain.Store(0)
+		procSetWindowPos.Call(hwnd, hwndNoTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
+		procShowWindow.Call(hwnd, swMinimize)
+		if g := lastGameWindow.Load(); g != 0 {
+			procSetForeground.Call(uintptr(g))
+		}
+		return
+	}
+	var pid uint32
+	procWindowPid.Call(fg, uintptr(unsafe.Pointer(&pid)))
+	if game := currentGamePid(); game != 0 && pid == game {
+		lastGameWindow.Store(uint64(fg))
+	}
+	if r, _, _ := procIsIconic.Call(hwnd); r != 0 {
+		procShowWindow.Call(hwnd, swRestore)
+	}
+	procSetWindowPos.Call(hwnd, hwndTopmost, 0, 0, 0, 0, swpNoMove|swpNoSize|swpShowWindow)
+	procSetForeground.Call(hwnd)
+	summonedMain.Store(uint64(hwnd))
 }

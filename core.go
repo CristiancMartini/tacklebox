@@ -18,15 +18,19 @@ type Options struct {
 	Vegetation string `json:"vegetation"` // vegNormal, vegGrass ou vegAll
 	Windows    bool   `json:"windows"`
 	Priority   bool   `json:"priority"`
+	HudSide    string `json:"hudSide"` // painel fixo: "direita" ou "esquerda"
 }
 
 func defaultOptions() Options {
-	return Options{Graphics: true, Scale: 67, Vegetation: vegAll, Windows: true, Priority: true}
+	return Options{Graphics: true, Scale: 67, Vegetation: vegAll, Windows: true, Priority: true, HudSide: "direita"}
 }
 
 func (o *Options) normalize() {
 	if o.Scale < 50 || o.Scale > 100 {
 		o.Scale = 67
+	}
+	if o.HudSide != "esquerda" {
+		o.HudSide = "direita"
 	}
 	switch o.Vegetation {
 	case vegNormal, vegGrass, vegAll:

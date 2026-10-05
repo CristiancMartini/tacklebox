@@ -457,7 +457,8 @@
           <input class="search" id="gSearch" placeholder="Buscar peixe ou isca…">
           <label class="switch"><input type="checkbox" id="gMissing"><span class="t"></span>Só os que faltam</label>
           <div class="grow"></div>
-          <button class="btn" id="btnOverlay" style="width:auto;padding:6px 12px"><span class="dot" id="ovDot"></span><span id="ovText">Overlay desligado</span> <kbd>Ctrl+Shift+G</kbd></button>
+          <select id="hudSide" title="Lado do painel fixo sobre o jogo"><option value="direita">Painel à direita</option><option value="esquerda">Painel à esquerda</option></select>
+          <button class="btn" id="btnOverlay" style="width:auto;padding:6px 12px"><span class="dot" id="ovDot"></span><span id="ovText">Painel fixo desligado</span> <kbd>Ctrl+Shift+X</kbd></button>
         </div>
       </div>
       <div class="guide">
@@ -609,6 +610,11 @@
     <div class="panel">
       <div class="ph"><h2>Atividade</h2></div>
       <div class="log scroll" id="logShort"><div class="empty">Nenhuma ação ainda.</div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>No jogo</h2></div>
+      <div class="srow"><kbd>Ctrl+Shift+G</kbd><span class="k">abre e fecha o Tacklebox</span></div>
+      <div class="srow"><kbd>Ctrl+Shift+X</kbd><span class="k">painel fixo (o mouse atravessa)</span></div>
     </div>
     <div class="small muted" style="padding:0 2px;margin-top:auto"><span id="ver"></span> · <a class="link" id="lnkRepo">GitHub</a></div>
   </aside>
@@ -942,9 +948,10 @@ renderFish = function (res, f, idx) {
 };
 window.onOverlay = (on) => {
   $("#ovDot").className = "dot" + (on ? " g" : "");
-  $("#ovText").textContent = on ? "Overlay ligado" : "Overlay desligado";
-  $("#btnOverlay").title = on ? "Aparece por cima do jogo sempre que ele estiver na frente" : "Ligue para ver o guia por cima do jogo";
+  $("#ovText").textContent = on ? "Painel fixo ligado" : "Painel fixo desligado";
+  $("#btnOverlay").title = on ? "Aparece por cima do jogo sempre que ele estiver na frente; o mouse passa direto por ele" : "Missão, minimapa e peixes daqui por cima do jogo";
 };
+$("#hudSide").onchange = (e) => { opts.hudSide = e.target.value; setHudSide(e.target.value); };
 $("#btnOverlay").onclick = async () => { try { window.onOverlay(await toggleOverlay()); } catch (e) { window.onLog(["warn", String(e)]); } };
 $("#lnkSheet").onclick = () => guide && openURL(guide.sheet);
 
@@ -1241,6 +1248,7 @@ $("#lnkRepo").onclick = () => openURL(info.repo);
 (async () => {
   info = await getInfo();
   opts = info.options;
+  $("#hudSide").value = opts.hudSide || "direita";
   $("#ver").textContent = "Tacklebox v" + info.version;
   $("#subBuild").textContent = info.build ? "Build " + info.build : "";
   $("#gsub").textContent = info.gamePath ? "Steam · build " + (info.build || "—") : "Jogo não encontrado na Steam";

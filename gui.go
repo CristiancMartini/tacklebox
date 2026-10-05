@@ -183,9 +183,14 @@ func runGUI(env Env) error {
 		shared.Lock()
 		ov = o
 		shared.Unlock()
+		o.setSide(loadOptions().HudSide == "esquerda")
 		go o.follow()
-		if !listenHotkey(o.toggle) {
-			push("warn", "O atalho Ctrl+Shift+G já é usado por outro programa. Abra o overlay pelo botão no Guia.")
+		bad := listenHotkeys([]Hotkey{
+			{Key: 'G', Name: "Ctrl+Shift+G", Fn: func() { w.Dispatch(func() { toggleOverGame(hwnd) }) }},
+			{Key: 'X', Name: "Ctrl+Shift+X", Fn: o.toggle},
+		})
+		for _, k := range bad {
+			push("warn", "O atalho "+k+" já é usado por outro programa.")
 		}
 	}()
 
@@ -266,6 +271,18 @@ func runGUI(env Env) error {
 	w.Bind("getStatus", func() Status { return getStatus(env) })
 	w.Bind("getGraphics", func(scale int) []GraphicsRow { return graphicsTable(env.IniPath, scale) })
 	common(w.Bind)
+	w.Bind("setHudSide", func(side string) {
+		op := loadOptions()
+		op.HudSide = side
+		op.normalize()
+		saveOptions(op)
+		shared.Lock()
+		o := ov
+		shared.Unlock()
+		if o != nil {
+			o.setSide(op.HudSide == "esquerda")
+		}
+	})
 	w.Bind("toggleOverlay", func() (bool, error) {
 		shared.Lock()
 		o := ov
