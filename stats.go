@@ -23,6 +23,7 @@ import (
 
 type CatchInfo struct {
 	Species    string  `json:"species"`
+	SpeciesID  uint32  `json:"speciesId"`
 	Reserve    string  `json:"reserve"`
 	World      string  `json:"world"`
 	Weight     float64 `json:"weight"`     // kg
@@ -96,6 +97,26 @@ type PlayerStat struct {
 	Saved        int64   `json:"saved"`
 }
 
+type ObjectiveInfo struct {
+	Text    string `json:"text"`
+	Done    bool   `json:"done"`
+	Active  bool   `json:"active"`
+	Counter int    `json:"counter"`
+}
+
+// MissionInfo é uma missão em andamento; a rastreada (a que aparece na tela do
+// jogo) vem primeiro em cada reserva.
+type MissionInfo struct {
+	World      string          `json:"world"`
+	Reserve    string          `json:"reserve"`
+	Name       string          `json:"name"`
+	Desc       string          `json:"desc"`
+	Tracked    bool            `json:"tracked"`
+	Done       int             `json:"done"`
+	Total      int             `json:"total"`
+	Objectives []ObjectiveInfo `json:"objectives"`
+}
+
 type Stats struct {
 	OK       bool          `json:"ok"`
 	Error    string        `json:"error,omitempty"`
@@ -104,6 +125,7 @@ type Stats struct {
 	Species  []SpeciesStat `json:"species"`
 	Catches  []CatchInfo   `json:"catches"`
 	Best     []CatchInfo   `json:"best"`
+	Missions []MissionInfo `json:"missions"`
 	Modified int64         `json:"modified"`
 }
 
@@ -323,6 +345,7 @@ func statsFromSave(raw []byte, gn gameNames) (Stats, error) {
 	catch := func(c interface{}, world, reserve string) CatchInfo {
 		return CatchInfo{
 			Species:    speciesName(num(c, "FishSpeciesId")),
+			SpeciesID:  uint32(num(c, "FishSpeciesId")),
 			Reserve:    reserve,
 			World:      world,
 			Weight:     num(c, "Weight"),
@@ -432,6 +455,8 @@ func statsFromSave(raw []byte, gn gameNames) (Stats, error) {
 		p.StrikeRate = float64(strikeOK) / float64(strikeAll)
 	}
 
+	s.Missions = missionsFrom(root, reserveName)
+
 	sort.Slice(s.Catches, func(i, j int) bool { return s.Catches[i].Date > s.Catches[j].Date })
 	sort.Slice(s.Species, func(i, j int) bool { return s.Species[i].Caught > s.Species[j].Caught })
 	sort.Slice(s.Reserves, func(i, j int) bool { return s.Reserves[i].Caught > s.Reserves[j].Caught })
@@ -480,4 +505,53 @@ func steamPersona(steamID string) (name, avatar string) {
 		avatar = "data:image/png;base64," + base64.StdEncoding.EncodeToString(b)
 	}
 	return name, avatar
+}
+
+// ---------- missões ----------
+
+// missionsFrom lista as missões começadas e não terminadas de cada reserva.
+// IDs de missão e de objetivo são o lookup3 do nome interno, e o texto vem da
+// tabela de textos do jogo. StateFlags: 1 = começou, 2 = concluído, 4 = entregue.
+func missionsFrom(root interface{}, reserveName func(float64) (string, string, string)) []MissionInfo {
+	gd := loadGameData("")
+	out := []MissionInfo{}
+	for _, w := range list(root, "MissionSaveData", "WorldMissionSaveData") {
+		world, name, _ := reserveName(num(w, "WorldNameHash"))
+		tracked := uint32(num(w, "TrackedMissionId"))
+		var ms []MissionInfo
+		for _, m := range list(w, "MissionInstanceSaveData") {
+			id := uint32(num(m, "MissionId"))
+			flags := int(num(m, "StateFlags"))
+			if flags&1 == 0 || flags&4 != 0 {
+				continue
+			}
+			mi := MissionInfo{World: world, Reserve: name, Name: gd.label(id), Tracked: id == tracked, Objectives: []ObjectiveInfo{}}
+			if k, ok := gd.keyOf[id]; ok {
+				mi.Desc = gd.tr(k + "_desc")
+			}
+			if mi.Name == "" {
+				continue // missões internas, sem texto
+			}
+			for _, o := range list(m, "ObjectiveSaveData") {
+				of := int(num(o, "StateFlags"))
+				oi := ObjectiveInfo{
+					Text:    gd.label(uint32(num(o, "ObjectiveId"))),
+					Done:    of&2 != 0,
+					Active:  of&1 != 0 && of&2 == 0,
+					Counter: int(num(o, "ObjectiveCounter")),
+				}
+				mi.Total++
+				if oi.Done {
+					mi.Done++
+				}
+				if oi.Text != "" {
+					mi.Objectives = append(mi.Objectives, oi)
+				}
+			}
+			ms = append(ms, mi)
+		}
+		sort.SliceStable(ms, func(i, j int) bool { return ms[i].Tracked && !ms[j].Tracked })
+		out = append(out, ms...)
+	}
+	return out
 }

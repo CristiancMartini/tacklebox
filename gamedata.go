@@ -19,6 +19,7 @@ func tablePath(name string) string { return "settings/game_data_tables/" + name 
 type gameData struct {
 	rawText []byte
 	text    map[string]string // chave de texto -> texto em inglês
+	keyOf   map[uint32]string // lookup3 de uma chave (sem _name/_title/_desc) -> chave
 	raw     map[string][]byte // tabela (nome sem pasta e extensão) -> conteúdo
 }
 
@@ -29,7 +30,7 @@ var (
 
 func loadGameData(gameDir string) *gameData {
 	dataOnce.Do(func() {
-		data = gameData{text: map[string]string{}, raw: map[string][]byte{}}
+		data = gameData{text: map[string]string{}, keyOf: map[uint32]string{}, raw: map[string][]byte{}}
 		if gameDir == "" {
 			return
 		}
@@ -46,6 +47,7 @@ func loadGameData(gameDir string) *gameData {
 			if b, err := readArcEntry(e); err == nil {
 				data.rawText = b
 				data.text = stringTableFrom(b)
+				data.keyOf = keysByHash(data.text)
 			}
 		}
 		for _, t := range tables {
@@ -62,6 +64,38 @@ func loadGameData(gameDir string) *gameData {
 // tr devolve o texto em inglês de uma chave (ou "" se não existir).
 func (g *gameData) tr(key string) string {
 	return strings.TrimSpace(g.text[key])
+}
+
+// keysByHash indexa as chaves de texto pelo lookup3, que é como missões e
+// objetivos aparecem no save ("tta01.5" -> nome "tta01.5_title").
+func keysByHash(text map[string]string) map[uint32]string {
+	out := map[uint32]string{}
+	for k := range text {
+		base := k
+		for _, suf := range []string{"_name", "_title", "_desc"} {
+			base = strings.TrimSuffix(base, suf)
+		}
+		for _, c := range []string{k, base} {
+			if _, ok := out[l3(c)]; !ok {
+				out[l3(c)] = c
+			}
+		}
+	}
+	return out
+}
+
+// label devolve o texto de um ID do save (missão ou objetivo), ou "".
+func (g *gameData) label(id uint32) string {
+	k, ok := g.keyOf[id]
+	if !ok {
+		return ""
+	}
+	for _, c := range []string{k + "_name", k + "_title", k} {
+		if t := g.tr(c); t != "" {
+			return t
+		}
+	}
+	return ""
 }
 
 // stringTableFrom lê o .stringlookup: pares ordenados {hash, texto, chave}

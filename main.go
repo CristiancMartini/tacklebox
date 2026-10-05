@@ -9,16 +9,18 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/windows"
 )
 
-const appVersion = "2.0.0"
+const appVersion = "2.1.0"
 
 var (
 	flagAuto         = flag.Bool("auto", false, "aplica as opções salvas e abre o jogo, sem interface")
@@ -30,6 +32,9 @@ var (
 	flagStatsJSON    = flag.Bool("stats-json", false, "imprime as estatísticas lidas do save (diagnóstico)")
 	flagAnonimo      = flag.Bool("anonimo", false, "não mostra nome e avatar da Steam (para prints)")
 	flagGuideJSON    = flag.Bool("guia-json", false, "imprime o guia de peixes lido do jogo (diagnóstico)")
+	flagAoVivo       = flag.Bool("ao-vivo", false, "mostra por 20 s o que o overlay lê do jogo aberto (diagnóstico)")
+	flagOverlayTeste = flag.Bool("overlay-sempre", false, "mostra o overlay mesmo sem o jogo em primeiro plano (testes)")
+	flagFoto         = flag.String("foto", "", "salva a foto de um peixe (nome do ícone) como PNG na pasta atual (diagnóstico)")
 )
 
 func main() {
@@ -42,6 +47,28 @@ func main() {
 		st.Player.Avatar = fmt.Sprintf("(%d bytes)", len(st.Player.Avatar))
 		b, _ := json.MarshalIndent(st, "", "  ")
 		fmt.Println(string(b))
+		return
+	}
+	if *flagAoVivo {
+		attachConsole()
+		start := time.Now()
+		for time.Since(start) < 20*time.Second {
+			b, _ := json.Marshal(readLive(env))
+			fmt.Printf("%5.1fs %s\n", time.Since(start).Seconds(), b)
+			time.Sleep(time.Second)
+		}
+		return
+	}
+	if *flagFoto != "" {
+		attachConsole()
+		for _, size := range []string{"small", "medium"} {
+			u := fishImage(env.GameDir, *flagFoto, size)
+			if i := strings.Index(u, ","); i >= 0 {
+				b, _ := base64.StdEncoding.DecodeString(u[i+1:])
+				os.WriteFile(*flagFoto+"_"+size+".png", b, 0o644)
+			}
+			fmt.Println(size, len(u))
+		}
 		return
 	}
 	if *flagGuideJSON {

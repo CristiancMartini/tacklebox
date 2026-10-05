@@ -41,9 +41,17 @@ Tudo vem das tabelas do próprio jogo, então cobre todas as reservas e acompanh
 
 <img src="docs/overlay.png" align="right" width="300" alt="Overlay">
 
-Aperte **Ctrl+Shift+G** com o jogo aberto: aparece uma janela pequena na lateral da tela com o guia da reserva onde você está (detectada pela última captura), a última captura e quantas espécies faltam. Clique num peixe para ver iscas, artificiais, habitats e comportamento. Aperte de novo para esconder.
+Aperte **Ctrl+Shift+G** com o jogo aberto: aparece um painel na lateral da tela, que acompanha você ao vivo:
+
+- **Missão atual** e o objetivo que está na tela do jogo.
+- **Peixes aqui:** as espécies que vivem no lago ou rio onde você está (o jogo divide cada reserva em corpos d'água, cada um com a sua lista), com foto, iscas favoritas e quais você ainda não pegou.
+- **Onde pegar:** seta e distância até os pontos que o próprio jogo marca para cada espécie (áreas das missões de pesca, com a faixa de troféu, desafios de local e esconderijos dos lendários) e até os lugares onde você já pegou aquele peixe.
+- Direção para onde você está olhando e quantos peixes pegou hoje.
+
+Clique num peixe para ver foto, iscas, artificiais, habitat e comportamento. O painel some sozinho quando você sai do jogo (alt-tab) e volta quando você volta; aperte o atalho de novo para desligar.
 
 - Não injeta nada no jogo: é uma janela normal do Windows, sempre por cima, que não rouba o teclado nem o mouse do jogo.
+- Posição, reserva e missão são lidas da memória do jogo em **modo somente leitura** (nada é alterado).
 - Para ela aparecer por cima, use **Window Mode: Borderless** nas opções de vídeo do jogo (em tela cheia exclusiva o Windows não deixa nada ficar por cima).
 - O Tacklebox precisa estar aberto (pode ficar minimizado).
 
@@ -75,7 +83,7 @@ Tacklebox.exe --desfazer   volta tudo como estava
 
 ## Perguntas frequentes
 
-**Dá ban?** O jogo não tem anti-cheat e o Tacklebox não injeta nada nem lê a memória do jogo. As estatísticas e o guia só leem arquivos; os gráficos usam o mesmo arquivo que o menu do jogo grava. A vegetação é uma modificação de arquivos (num pacote extra, sem tocar nos originais), então não dá pra garantir 100%; se preferir, use só os gráficos.
+**Dá ban?** O jogo não tem anti-cheat e o Tacklebox não injeta nada nem altera o jogo. As estatísticas e o guia leem arquivos; o overlay lê a posição, a reserva e a missão da memória do jogo, só leitura (o mesmo tipo de acesso de um gerenciador de tarefas); os gráficos usam o mesmo arquivo que o menu do jogo grava. A vegetação é uma modificação de arquivos (num pacote extra, sem tocar nos originais), então não dá pra garantir 100%; se preferir, use só os gráficos.
 
 **Tem DLSS?** O jogo não tem DLSS. Colocar à força exigiria injetar DLL no jogo. O FSR 2 já vem no jogo e faz o mesmo papel.
 
@@ -96,10 +104,13 @@ Detalhes para quem quiser mexer (tudo descoberto analisando os arquivos do jogo,
 - **Arquivos do jogo:** `archives_win64\initial\gameN.tab/.arc` (TAB v3). Cada entrada é indexada pelo **MurmurHash3 x64_128 (h1)** do caminho; os dados são zlib, em blocos de 512 KB. O jogo carrega `game0`…`gameN` e, quando o mesmo arquivo aparece em mais de um pacote, vale o último.
 - **Save e estatísticas:** `%USERPROFILE%\Saved Games\Avalanche Studios\CotWTheAngler\Saves\<steamid>\player_save_data` é um ADF (Avalanche Data Format), que descreve os próprios tipos; o leitor é genérico (`adf.go`). Espécies e reservas são identificadas pelo hash **lookup3** do Bob Jenkins do nome interno; os níveis vêm de `progression_curves.csvc`.
 - **Guia:** `settings/game_data_tables/fish_codex_<reserva>.csvc` (habitat, profundidade, temperatura, comportamento, pesos), `fish_codex_bait_compatibility.csvc` (preferência de cada isca e recolhimento, de 5 a 40), `item_defs.csvc` e os textos de `text/master_eng.stringlookup`.
+- **Mundo:** `worlds/<reserva>/.../global_trufish.blo` (RTPC) define os corpos d'água do sistema de peixes (TruFish), cada um com a lista de espécies (lookup3 do FishID). As missões de pesca têm áreas que forçam uma espécie e uma faixa de troféu (`TruFishOverrideArea`), e os lendários têm zonas próprias (`L_<espécie>_N`, as mesmas do códice).
+- **Ao vivo:** o executável tem RTTI, então a vtable de `CPlayer`, `CMissionHUDModel` e `CReserveSelectModel` é localizada no .exe e os objetos são procurados na memória do jogo (somente leitura). Coordenadas: X para leste, Z para o sul.
+- **Fotos:** `ui/shared/textures/items/<tamanho>/<peixe>.ddsc` (textura AVTX em BC3), convertidas em PNG.
 - **Gráficos:** `settings.ini`, seção `[Graphics]`. As faixas de cada opção e a tabela dos presets (Potato → Ultra) foram lidas do executável. A escala de resolução é `FrameScaleMinimum_V2` com `FrameScaleMode=2` (manual).
 - **Vegetação:** `worlds/<mapa>/climate/vegetation_layers.vegetationinfo` (ADF). O **alcance de cada camada** (`VegetationModelLayer.Range` e as camadas de billboard e de física) é aplicado na hora de desenhar; o Tacklebox põe 1 m nas camadas escolhidas e `0xdeadbeef` ("nenhum") na física e nos efeitos dos objetos delas, e grava um pacote extra `game<N+1>`. Testado e descartado: a pasta `dropzone` (a função que a monta está vazia no jogo publicado) e montar pastas com `--vfs-fs/--vfs-archive` (o jogo fecha ao entrar no mapa).
 
-O código está organizado em: `core.go` (ações), `ini.go` (gráficos), `vegmod.go` (vegetação e formato dos pacotes), `adf.go`/`stats.go` (save), `gamedata.go`/`guide.go` (tabelas e guia), `winsys.go` (Windows), `gui.go`/`window.go`/`overlay.go` e `ui/` (interface em WebView2).
+O código está organizado em: `core.go` (ações), `ini.go` (gráficos), `vegmod.go` (vegetação e formato dos pacotes), `adf.go`/`stats.go` (save), `gamedata.go`/`guide.go`/`rtpc.go`/`places.go`/`texture.go` (tabelas, guia, lugares e fotos), `livegame.go` (dados ao vivo), `mycatches.go` (onde você pegou), `winsys.go` (Windows), `gui.go`/`window.go`/`overlay.go` e `ui/` (interface em WebView2).
 
 ## Compilar
 

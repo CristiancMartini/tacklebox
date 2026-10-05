@@ -60,6 +60,8 @@ func runGUI(env Env) error {
 	var ov *overlay
 	var guide *Guide
 	var stats *Stats
+	var live Live
+	var thumbs map[string]string
 	overlayCall := func(fn string, v interface{}) {
 		shared.Lock()
 		o := ov
@@ -68,33 +70,88 @@ func runGUI(env Env) error {
 			o.call(fn, v)
 		}
 	}
+	both := func(fn string, v interface{}) {
+		call(fn, v)
+		overlayCall(fn, v)
+	}
 	go func() {
 		g := buildGuide(env.GameDir)
 		shared.Lock()
 		guide = &g
 		shared.Unlock()
-		call("onGuide", g)
-		overlayCall("onGuide", g)
+		both("onGuide", g)
+		// miniaturas de todos os peixes (decodificadas uma vez, em segundo plano)
+		var icons []string
+		for _, r := range g.Reserves {
+			for _, f := range r.Fish {
+				icons = append(icons, f.Icon)
+			}
+		}
+		t := fishImages(env.GameDir, icons, "thumb")
+		shared.Lock()
+		thumbs = t
+		shared.Unlock()
+		both("onThumbs", t)
 	}()
+
+	// Dados ao vivo do jogo (memória, só leitura), duas vezes por segundo.
+	go func() {
+		var last []byte
+		for {
+			l := readLive(env)
+			shared.Lock()
+			live = l
+			shared.Unlock()
+			if b, _ := json.Marshal(l); string(b) != string(last) {
+				last = b
+				both("onLive", l)
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+	// fotos grandes sob demanda: a resposta volta por onPhoto
+	requestPhoto := func(icon string) {
+		go func() {
+			both("onPhoto", map[string]string{"icon": icon, "url": fishImage(env.GameDir, icon, "medium")})
+		}()
+	}
+	common := func(bind func(string, interface{}) error) {
+		bind("getGuide", func() *Guide {
+			shared.Lock()
+			defer shared.Unlock()
+			return guide
+		})
+		bind("getStats", func() *Stats {
+			shared.Lock()
+			defer shared.Unlock()
+			return stats
+		})
+		bind("getLive", func() Live {
+			shared.Lock()
+			defer shared.Unlock()
+			return live
+		})
+		bind("getThumbs", func() map[string]string {
+			shared.Lock()
+			defer shared.Unlock()
+			return thumbs
+		})
+		bind("requestPhoto", requestPhoto)
+		bind("getMyCatches", loadMyCatches)
+	}
 	go func() {
 		time.Sleep(800 * time.Millisecond) // deixa a janela principal subir primeiro
 		o := startOverlay(dataPath, func(o *overlay) {
-			o.w.Bind("getGuide", func() *Guide {
-				shared.Lock()
-				defer shared.Unlock()
-				return guide
-			})
-			o.w.Bind("getStats", func() *Stats {
-				shared.Lock()
-				defer shared.Unlock()
-				return stats
-			})
+			common(o.w.Bind)
 			o.w.Bind("ovWin", func(action string) {
 				switch action {
 				case "drag":
+					o.mu.Lock()
+					o.moved = true
+					o.mu.Unlock()
 					dragWindow(o.hwnd)
 				case "hide":
-					procShowWindow.Call(o.hwnd, swHide)
+					go o.setEnabled(false)
 				}
 			})
 		})
@@ -102,9 +159,13 @@ func runGUI(env Env) error {
 			push("warn", "Não consegui criar o overlay.")
 			return
 		}
+		o.mu.Lock()
+		o.onState = func(on bool) { call("onOverlay", on) }
+		o.mu.Unlock()
 		shared.Lock()
 		ov = o
 		shared.Unlock()
+		go o.follow()
 		if !listenHotkey(o.toggle) {
 			push("warn", "O atalho Ctrl+Shift+G já é usado por outro programa. Abra o overlay pelo botão no Guia.")
 		}
@@ -124,6 +185,7 @@ func runGUI(env Env) error {
 	// de tempos em tempos), mandando a versão nova para a tela.
 	go func() {
 		var last time.Time
+		var newest int64 = -1 // capturas até aqui já estavam no save quando o app abriu
 		for {
 			_, _, mod := findSave()
 			if !mod.Equal(last) {
@@ -131,9 +193,20 @@ func runGUI(env Env) error {
 				st := readStats(env)
 				shared.Lock()
 				stats = &st
+				l := live
 				shared.Unlock()
-				call("onStats", st)
-				overlayCall("onStats", st)
+				if newest >= 0 {
+					recordCatches(st.Catches, newest, l)
+				}
+				for _, c := range st.Catches {
+					if c.Date > newest {
+						newest = c.Date
+					}
+				}
+				if newest < 0 {
+					newest = 0
+				}
+				both("onStats", st)
 			}
 			time.Sleep(3 * time.Second)
 		}
@@ -174,25 +247,16 @@ func runGUI(env Env) error {
 	w.Bind("getBanner", func() string { return gameBanner(env.GameDir) })
 	w.Bind("getStatus", func() Status { return getStatus(env) })
 	w.Bind("getGraphics", func(scale int) []GraphicsRow { return graphicsTable(env.IniPath, scale) })
-	w.Bind("getStats", func() *Stats {
-		shared.Lock()
-		defer shared.Unlock()
-		return stats
-	})
-	w.Bind("getGuide", func() *Guide {
-		shared.Lock()
-		defer shared.Unlock()
-		return guide
-	})
-	w.Bind("toggleOverlay", func() error {
+	common(w.Bind)
+	w.Bind("toggleOverlay", func() (bool, error) {
 		shared.Lock()
 		o := ov
 		shared.Unlock()
 		if o == nil {
-			return errors.New("o overlay ainda está carregando")
+			return false, errors.New("o overlay ainda está carregando")
 		}
 		o.toggle()
-		return nil
+		return o.isEnabled(), nil
 	})
 	w.Bind("getMaps", func() []MapInfo {
 		mapsMu.Lock()

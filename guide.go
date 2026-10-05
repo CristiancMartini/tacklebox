@@ -37,6 +37,7 @@ type GuideFish struct {
 	SpeciesID uint32      `json:"speciesId"`
 	Name      string      `json:"name"`
 	Species   string      `json:"species,omitempty"` // espécie do lendário
+	Icon      string      `json:"icon"`              // imagem do jogo (ui/shared/textures/items/...)
 	Legendary bool        `json:"legendary"`
 	Habitats  []Tag       `json:"habitats"`
 	Foods     []Tag       `json:"foods"`
@@ -60,6 +61,8 @@ type GuideReserve struct {
 	Name   string      `json:"name"`
 	Region string      `json:"region"`
 	Fish   []GuideFish `json:"fish"`
+	Waters []Water     `json:"waters"`
+	Spots  []Spot      `json:"spots"`
 }
 
 type Guide struct {
@@ -356,6 +359,7 @@ func buildGuide(gameDir string) Guide {
 				ID:        id,
 				SpeciesID: l3(t.get(r, "FishSpecies")),
 				Name:      gd.tr(t.get(r, "FishName")),
+				Icon:      strings.TrimSuffix(t.get(r, "IconName"), ".png"),
 				DepthMin:  t.num(r, "SpawnDepthMin"),
 				DepthMax:  t.num(r, "SpawnDepthMax"),
 				TempMin:   t.num(r, "WaterTempMin"),
@@ -395,6 +399,7 @@ func buildGuide(gameDir string) Guide {
 		}
 		sort.SliceStable(res.Fish, func(i, j int) bool { return res.Fish[i].Name < res.Fish[j].Name })
 
+		zones := map[string]string{}
 		lt := parseTable(gd.raw["fish_codex_legendary_"+w])
 		for _, r := range lt.rows {
 			id := lt.get(r, "FishID")
@@ -406,6 +411,7 @@ func buildGuide(gameDir string) Guide {
 				SpeciesID: l3(lt.get(r, "FishSpecies")),
 				Name:      gd.tr(lt.get(r, "FishName")),
 				Species:   speciesName[lt.get(r, "FishSpecies")],
+				Icon:      strings.TrimSuffix(lt.get(r, "IconName"), ".png"),
 				Legendary: true,
 				DepthMin:  lt.num(r, "SpawnDepthMin"),
 				DepthMax:  lt.num(r, "SpawnDepthMax"),
@@ -424,7 +430,18 @@ func buildGuide(gameDir string) Guide {
 			f.Traits, f.Time = traits(lt.get(r, "Traits"))
 			f.Baits, f.Lures = tackle(id)
 			res.Fish = append(res.Fish, f)
+			for _, z := range strings.Split(lt.get(r, "SpawnZones"), "/") {
+				if z = strings.TrimSpace(z); z != "" {
+					zones[z] = id
+				}
+			}
 		}
+		ids := make([]string, 0, len(res.Fish))
+		for _, f := range res.Fish {
+			ids = append(ids, f.ID)
+		}
+		pl := loadPlaces(gameDir, w, ids, zones)
+		res.Waters, res.Spots = pl.Waters, pl.Spots
 		g.Reserves = append(g.Reserves, res)
 	}
 	g.OK = len(g.Reserves) > 0

@@ -10,6 +10,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"runtime"
+	"sync"
+	"time"
 	"unsafe"
 
 	webview2 "github.com/jchv/go-webview2"
@@ -50,6 +52,8 @@ var (
 	procRegisterHot   = user32.NewProc("RegisterHotKey")
 	procGetMessage    = user32.NewProc("GetMessageW")
 	procIsVisible     = user32.NewProc("IsWindowVisible")
+	procWindowPid     = user32.NewProc("GetWindowThreadProcessId")
+	procGetWindowRect = user32.NewProc("GetWindowRect")
 	procGetDpiMonitor = windows.NewLazySystemDLL("shcore.dll").NewProc("GetDpiForMonitor")
 	procDwmSetAttr    = windows.NewLazySystemDLL("dwmapi.dll").NewProc("DwmSetWindowAttribute")
 	procCoInit        = windows.NewLazySystemDLL("ole32.dll").NewProc("CoInitializeEx")
@@ -74,9 +78,13 @@ type cbtCreateWnd struct {
 }
 
 type overlay struct {
-	w      webview2.WebView
-	hwnd   uintptr
-	placed bool
+	w    webview2.WebView
+	hwnd uintptr
+
+	mu      sync.Mutex
+	enabled bool // ligado pelo atalho ou pelo botão
+	moved   bool // o jogador arrastou: respeita a posição escolhida
+	onState func(enabled bool)
 }
 
 // quietCreation cria janelas desta thread fora da tela, sem botão na barra de
@@ -149,33 +157,97 @@ func (o *overlay) visible() bool {
 	return r != 0
 }
 
-func (o *overlay) toggle() {
+// toggle liga ou desliga o overlay (atalho e botões).
+func (o *overlay) toggle() { o.setEnabled(!o.isEnabled()) }
+
+func (o *overlay) isEnabled() bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.enabled
+}
+
+func (o *overlay) setEnabled(on bool) {
+	o.mu.Lock()
+	changed := o.enabled != on
+	o.enabled = on
+	cb := o.onState
+	o.mu.Unlock()
+	if changed && cb != nil {
+		cb(on)
+	}
+	o.update()
+}
+
+// follow deixa o overlay visível só enquanto o jogo (ou o próprio overlay) está em
+// primeiro plano: some no alt-tab e volta quando o jogo volta. Com o jogo fechado,
+// ligar o overlay mostra uma prévia.
+func (o *overlay) follow() {
+	for {
+		o.update()
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+var (
+	gamePidMu   sync.Mutex
+	gamePid     uint32
+	gamePidSeen time.Time
+)
+
+// currentGamePid consulta a lista de processos no máximo a cada 3 s.
+func currentGamePid() uint32 {
+	gamePidMu.Lock()
+	defer gamePidMu.Unlock()
+	if time.Since(gamePidSeen) > 3*time.Second {
+		gamePid, _ = findProcess(gameExeName)
+		gamePidSeen = time.Now()
+	}
+	return gamePid
+}
+
+func (o *overlay) update() {
+	fg, _, _ := procGetForeground.Call()
+	var pid uint32
+	procWindowPid.Call(fg, uintptr(unsafe.Pointer(&pid)))
+	game := currentGamePid()
+	gameFront := game != 0 && pid == game
+	want := o.isEnabled() && (gameFront || fg == o.hwnd || game == 0 || *flagOverlayTeste)
+	if want == o.visible() {
+		return
+	}
 	o.w.Dispatch(func() {
-		if o.visible() {
+		if !want {
 			procShowWindow.Call(o.hwnd, swHide)
 			return
 		}
-		o.show()
+		o.show(fg)
 	})
 }
 
-func (o *overlay) hide() { o.w.Dispatch(func() { procShowWindow.Call(o.hwnd, swHide) }) }
-
-// show mostra sem ativar. Na primeira vez posiciona na lateral direita do
-// monitor do jogo; depois respeita onde o jogador arrastou.
-func (o *overlay) show() {
+// show mostra sem ativar, na lateral direita da janela do jogo (ou do monitor),
+// a não ser que o jogador tenha arrastado o overlay para outro lugar.
+func (o *overlay) show(anchor uintptr) {
 	flags := uintptr(swpNoActivate | swpShowWindow)
 	var x, y, w, h int32
-	if o.placed {
+	o.mu.Lock()
+	moved := o.moved
+	o.mu.Unlock()
+	if moved {
 		flags |= swpNoMove | swpNoSize
 	} else {
-		fg, _, _ := procGetForeground.Call()
-		if fg == 0 {
-			fg = o.hwnd
+		if anchor == 0 {
+			anchor = o.hwnd
 		}
-		mon, _, _ := procMonitorFrom.Call(fg, 1) // MONITOR_DEFAULTTOPRIMARY
+		mon, _, _ := procMonitorFrom.Call(anchor, 1) // MONITOR_DEFAULTTOPRIMARY
 		mi := monitorInfo{cbSize: uint32(unsafe.Sizeof(monitorInfo{}))}
 		procMonitorInfo.Call(mon, uintptr(unsafe.Pointer(&mi)))
+		r := mi.monitor
+		var wr windows.Rect
+		if anchor != o.hwnd {
+			if ok, _, _ := procGetWindowRect.Call(anchor, uintptr(unsafe.Pointer(&wr))); ok != 0 && wr.Right-wr.Left > 400 && wr.Bottom-wr.Top > 300 {
+				r = wr
+			}
+		}
 		dpiX, dpiY := uint32(96), uint32(96)
 		if procGetDpiMonitor.Find() == nil {
 			procGetDpiMonitor.Call(mon, 0, uintptr(unsafe.Pointer(&dpiX)), uintptr(unsafe.Pointer(&dpiY)))
@@ -184,7 +256,6 @@ func (o *overlay) show() {
 			dpiX = 96
 		}
 		px := func(v int32) int32 { return v * int32(dpiX) / 96 }
-		r := mi.monitor
 		w = px(overlayW)
 		h = px(overlayH)
 		if max := r.Bottom - r.Top - px(48); h > max {
@@ -192,7 +263,6 @@ func (o *overlay) show() {
 		}
 		x = r.Right - w - px(24)
 		y = r.Top + (r.Bottom-r.Top-h)/2
-		o.placed = true
 	}
 	procSetWindowPos.Call(o.hwnd, hwndTopmost, uintptr(x), uintptr(y), uintptr(w), uintptr(h), flags)
 	o.call("onShow", true)
