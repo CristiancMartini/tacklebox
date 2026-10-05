@@ -41,7 +41,7 @@ Tudo vem das tabelas do próprio jogo, então cobre todas as reservas e acompanh
 
 <img src="docs/overlay.png" align="right" width="300" alt="Overlay">
 
-Dois atalhos, que funcionam com o jogo em foco:
+Três atalhos, que funcionam com o jogo em foco:
 
 - **Ctrl+Shift+G** abre o Tacklebox completo como overlay por cima do jogo (mapa, guia, missões, estatísticas): sem janela na barra de tarefas, levemente translúcido e arrastável pela barra de cima. Aperte de novo, clique em "Voltar ao jogo" ou clique no jogo para ele sumir.
 - **Ctrl+Shift+M** abre **só o mapa, grande**, cobrindo quase toda a tela do jogo e centrado em você. Aperte de novo, Esc ou clique no jogo para voltar.
