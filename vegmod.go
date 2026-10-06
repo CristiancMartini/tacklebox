@@ -7,9 +7,11 @@
 // (Testado: a pasta "dropzone" é ignorada no jogo publicado, e montar pastas com
 // --vfs-fs/--vfs-archive faz o jogo fechar ao entrar no mapa.)
 //
-// O arquivo alterado é worlds/<mapa>/climate/vegetation_layers.vegetationinfo; veja
-// patchVegetationInfo para o que muda. As instâncias continuam existindo nos dados do
-// mapa (só não são desenhadas), então o multiplayer continua sincronizado.
+// O pacote leva, por mapa, worlds/<mapa>/climate/vegetation_layers.vegetationinfo
+// (alcance das camadas, física e as tabelas da grama gerada na hora; veja
+// patchVegetationInfo) e versões vazias dos trechos de vegetação pré-calculada (veja
+// emptyVegStreams), para o jogo nem carregar o que está escondido. É só visual e
+// local: peixes, missões e o multiplayer não dependem da vegetação.
 package main
 
 import (
@@ -177,12 +179,18 @@ func isOwnTab(b []byte, want map[uint64]string) bool {
 	if n == 0 || len(b) != 0x28+n*24 {
 		return false
 	}
+	marker := murmur3h1([]byte(vegMarkerPath))
+	all := true
 	for k := 0; k < n; k++ {
-		if _, ok := want[binary.LittleEndian.Uint64(b[0x28+k*24:])]; !ok {
-			return false
+		h := binary.LittleEndian.Uint64(b[0x28+k*24:])
+		if h == marker {
+			return true
+		}
+		if _, ok := want[h]; !ok {
+			all = false
 		}
 	}
-	return true
+	return all // versões antigas: só os vegetationinfo, sem o marcador
 }
 
 func vegWant() map[uint64]string {
@@ -509,11 +517,13 @@ func patchVegetationInfo(b []byte, mode string) ([]byte, int, error) {
 		return nil, 0, errors.New("dados fora do arquivo")
 	}
 	count := 0
+	hiddenObj := map[int16]bool{} // posição no VegetationObjects
 	for i := uint32(0); i < uint32(objCnt); i++ {
 		o := objArr + i*392
 		if mode != vegAll && !hidden[u32(o+0x08)] { // LayerHash
 			continue
 		}
+		hiddenObj[int16(i)] = true
 		none(o + 0x98)  // Physics.PfxFile
 		none(o + 0xa0)  // Physics.StumpFile
 		none(o + 0xa4)  // Physics.PfxStumpFile
@@ -524,13 +534,273 @@ func patchVegetationInfo(b []byte, mode string) ([]byte, int, error) {
 		none(o + 0x138) // Effects.FallingLeavesEffect
 		count++
 	}
+
+	// A grama miúda nasce na hora, sorteada em tabelas de 64 posições por conjunto e
+	// canal (VegetationSet.ProbabilityBuffer: índice do objeto ou -1 = nada). Com os
+	// objetos escondidos trocados por -1, o jogo nem gera essas instâncias.
+	// VegetationZones fica em +0x40 e DefaultVegetationZone em +0x60; cada zona é uma
+	// lista de VegetationSet (40 bytes, ProbabilityBuffer em +8), cada ProbabilityBuffer
+	// tem 24 bytes (Buffer em +0, AnyValidVariation no bit 0 de +0x10).
+	arrOf := func(at uint32, size uint64) (uint32, uint64, error) {
+		arr, n := base+u32(at), uint64(u32(at+8))
+		if uint64(arr)+n*size > uint64(len(out)) {
+			return 0, 0, errors.New("dados fora do arquivo")
+		}
+		return arr, n, nil
+	}
+	clearZone := func(zone uint32) error {
+		sets, ns, err := arrOf(zone, 40)
+		if err != nil {
+			return err
+		}
+		for i := uint64(0); i < ns; i++ {
+			pbs, np, err := arrOf(sets+uint32(i*40)+8, 24)
+			if err != nil {
+				return err
+			}
+			for k := uint64(0); k < np; k++ {
+				pb := pbs + uint32(k*24)
+				buf, nb, err := arrOf(pb, 2)
+				if err != nil {
+					return err
+				}
+				changed, any := false, false
+				for j := uint64(0); j < nb; j++ {
+					at := buf + uint32(j*2)
+					v := int16(binary.LittleEndian.Uint16(out[at:]))
+					if v >= 0 && hiddenObj[v] {
+						binary.LittleEndian.PutUint16(out[at:], 0xffff)
+						changed = true
+					} else if v >= 0 {
+						any = true
+					}
+				}
+				if changed && !any {
+					out[pb+0x10] &^= 1
+				}
+			}
+		}
+		return nil
+	}
+	zones, nz, err := arrOf(base+0x40, 16)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := uint64(0); i < nz; i++ {
+		if err := clearZone(zones + uint32(i*16)); err != nil {
+			return nil, 0, err
+		}
+	}
+	if err := clearZone(base + 0x60); err != nil {
+		return nil, 0, err
+	}
+
 	if _, err := parseADF(out); err != nil {
 		return nil, 0, err
 	}
 	return out, count, nil
 }
 
+// ---------- vegetação pré-calculada (veg_streampatches) ----------
+//
+// Mato, arbustos, pedras e árvores não são sorteados na hora: vêm prontos em trechos
+// worlds/<mapa>/terrain/veg_streampatches/width_<W>/patch_<nível>_<x>_<z>.streampatch,
+// que o jogo vai carregando em volta do jogador. Cada camada de billboard lê os seus
+// em width_<StreamPatchMapWidth>, no nível StreamPatchLod, e a camada de modelo de
+// origem (SourceLayerHash) usa as mesmas instâncias de perto. Só esconder pelo alcance
+// deixava tudo isso carregado e montado (custando FPS) e desenhado a 1 m da câmera.
+// O mod troca esses trechos por trechos vazios, iguais aos que o próprio jogo já usa
+// onde não há vegetação (só o cabeçalho, Size 0): nada é carregado.
+
+type vegStream struct {
+	width, lod int
+	hide       bool // todas as camadas que usam este conjunto estão escondidas
+}
+
+// vegStreamSets lista os conjuntos de trechos usados pelas camadas de billboard e o
+// tamanho do mundo (VegetationWorld.WorldSize, +0x90: x, altura, z).
+func vegStreamSets(b []byte, mode string) ([]vegStream, float32, error) {
+	info, err := parseADF(b)
+	if err != nil {
+		return nil, 0, err
+	}
+	var base uint32
+	found := false
+	for _, in := range info.instances {
+		if t, ok := info.types[in.typeHash]; ok && t.name == "VegetationWorld" {
+			base, found = in.off, true
+		}
+	}
+	if t, ok := info.types[0x1707d93a]; !found || (ok && t.size != 52) {
+		return nil, 0, errors.New("formato da vegetação inesperado")
+	}
+	u32 := func(o uint32) uint32 { return binary.LittleEndian.Uint32(b[o:]) }
+	low := map[uint32]bool{}
+	for _, n := range lowLayers {
+		low[l3(n)] = true
+	}
+	arr, n := base+u32(base+0x10), u32(base+0x18) // VegetationBillboardLayer
+	if uint64(arr)+uint64(n)*52 > uint64(len(b)) {
+		return nil, 0, errors.New("dados fora do arquivo")
+	}
+	var sets []vegStream
+	idx := map[[2]int]int{}
+	for i := uint32(0); i < n; i++ {
+		e := arr + i*52
+		lod, width := int(int32(u32(e+0x14))), int(int32(u32(e+0x18)))
+		if lod < 0 || lod > 20 || width < 1 || width > 64 {
+			continue
+		}
+		hide := mode == vegAll || (mode == vegGrass && low[u32(e+0x30)]) // SourceLayerHash
+		k := [2]int{width, lod}
+		if j, ok := idx[k]; ok {
+			sets[j].hide = sets[j].hide && hide
+			continue
+		}
+		idx[k] = len(sets)
+		sets = append(sets, vegStream{width, lod, hide})
+	}
+	size := max(math.Float32frombits(u32(base+0x90)), math.Float32frombits(u32(base+0x98)))
+	if !(size >= 1024 && size <= 1<<20) {
+		size = 32768
+	}
+	return sets, size, nil
+}
+
+func vegPatchPath(world string, width, lod, x, z int) string {
+	return fmt.Sprintf("worlds/%s/terrain/veg_streampatches/width_%d/patch_%02d_%02d_%02d.streampatch", world, width, lod, x, z)
+}
+
+// patchesPerSide: um trecho do nível L cobre 2^(L+1) m (no nível 9, 32×32 trechos
+// num mundo de 32768 m). Sobra uma fileira de folga; o que não existe é ignorado.
+func patchesPerSide(size float32, lod int) int {
+	n := int(math.Ceil(float64(size)/float64(int64(2)<<lod))) + 1
+	return min(max(n, 1), 512)
+}
+
+// emptyPatchHeader confere se b é um trecho vazio (só o StreamPatchFileHeader, Size 0)
+// e devolve onde está o cabeçalho.
+func emptyPatchHeader(b []byte) (uint32, bool) {
+	info, err := parseADF(b)
+	if err != nil || len(info.instances) != 1 {
+		return 0, false
+	}
+	in := info.instances[0]
+	t, ok := info.types[in.typeHash]
+	if !ok || t.name != "StreamPatchFileHeader" || t.size != 24 || uint64(in.off)+24 > uint64(len(b)) {
+		return 0, false
+	}
+	return in.off, binary.LittleEndian.Uint32(b[in.off+4:]) == 0
+}
+
+type worldStreams struct {
+	world string
+	sets  []vegStream
+	size  float32
+}
+
+// emptyVegStreams gera um trecho vazio para cada trecho escondido que existe no jogo.
+// O modelo é um trecho vazio do próprio jogo (há vários nos níveis mais altos), com
+// a posição e o nível trocados (cabeçalho +0x0c x, +0x10 z, +0x14 nível).
+func emptyVegStreams(gameDir string, worlds []worldStreams, log logFn) ([]vegFile, error) {
+	type pos struct{ world, lod, x, z int }
+	want := map[uint64]string{}
+	where := map[string]pos{}
+	tmplWant := map[uint64]string{}
+	for wi, ws := range worlds {
+		widths := map[int]int{} // menor nível usado em cada width
+		for _, s := range ws.sets {
+			if l, ok := widths[s.width]; !ok || s.lod < l {
+				widths[s.width] = s.lod
+			}
+			if !s.hide {
+				continue
+			}
+			n := patchesPerSide(ws.size, s.lod)
+			for x := 0; x < n; x++ {
+				for z := 0; z < n; z++ {
+					p := vegPatchPath(ws.world, s.width, s.lod, x, z)
+					want[murmur3h1([]byte(p))] = p
+					where[p] = pos{wi, s.lod, x, z}
+				}
+			}
+		}
+		for width, l0 := range widths {
+			for l := l0 + 1; l <= 14; l++ {
+				n := patchesPerSide(ws.size, l)
+				for x := 0; x < n && x < 8; x++ {
+					for z := 0; z < n && z < 8; z++ {
+						p := vegPatchPath(ws.world, width, l, x, z)
+						tmplWant[murmur3h1([]byte(p))] = p
+					}
+				}
+			}
+		}
+	}
+	if len(want) == 0 {
+		return nil, nil
+	}
+	entries, err := findEntries(gameDir, want)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) == 0 {
+		return nil, errors.New("trechos de vegetação não encontrados")
+	}
+
+	// modelo: o menor trecho que for vazio de verdade
+	tmplEntries, _ := findEntries(gameDir, tmplWant)
+	var cands []arcEntry
+	for _, e := range tmplEntries {
+		if e.usize <= 4096 {
+			cands = append(cands, e)
+		}
+	}
+	sort.Slice(cands, func(i, j int) bool { return cands[i].usize < cands[j].usize })
+	var tmpl []byte
+	var hdr uint32
+	for i := 0; i < len(cands) && i < 20 && tmpl == nil; i++ {
+		if b, err := readArcEntry(cands[i]); err == nil {
+			if h, ok := emptyPatchHeader(b); ok {
+				tmpl, hdr = b, h
+			}
+		}
+	}
+	if tmpl == nil {
+		return nil, errors.New("não achei um trecho vazio do jogo para usar de modelo")
+	}
+
+	paths := make([]string, 0, len(entries))
+	for p, e := range entries {
+		if e.usize != uint32(len(tmpl)) { // os que já são vazios ficam como estão
+			paths = append(paths, p)
+		}
+	}
+	sort.Strings(paths)
+	files := make([]vegFile, 0, len(paths))
+	perWorld := make([]int, len(worlds))
+	for _, p := range paths {
+		at := where[p]
+		d := append([]byte(nil), tmpl...)
+		binary.LittleEndian.PutUint32(d[hdr+0x0c:], uint32(at.x))
+		binary.LittleEndian.PutUint32(d[hdr+0x10:], uint32(at.z))
+		binary.LittleEndian.PutUint32(d[hdr+0x14:], uint32(at.lod))
+		files = append(files, vegFile{p, d})
+		perWorld[at.world]++
+	}
+	for wi, ws := range worlds {
+		if perWorld[wi] > 0 {
+			log("info", fmt.Sprintf("%s: %d trechos de vegetação deixam de ser carregados", mapLabel(ws.world), perWorld[wi]))
+		}
+	}
+	return files, nil
+}
+
 // ---------- instalar / desinstalar ----------
+
+// vegMarkerPath é uma entrada extra que identifica o pacote deste programa (o jogo
+// nunca pede esse caminho).
+const vegMarkerPath = "tacklebox/vegmod.txt"
 
 func vegFilePath(world string) string {
 	return "worlds/" + world + "/climate/vegetation_layers.vegetationinfo"
@@ -557,12 +827,15 @@ func buildArchive(files []vegFile) (tab, arc []byte) {
 	binary.LittleEndian.PutUint32(tab[0x18:], 0x80000)
 	binary.LittleEndian.PutUint32(tab[0x1c:], 0x80000)
 	tab = append(tab, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+	size := 0
+	for _, f := range files {
+		size += (len(f.data) + 0xfff) &^ 0xfff
+	}
+	arc = make([]byte, 0, size)
 	for _, f := range files {
 		off := len(arc)
 		arc = append(arc, f.data...)
-		for len(arc)%0x1000 != 0 {
-			arc = append(arc, 0)
-		}
+		arc = append(arc, make([]byte, (0x1000-len(arc)%0x1000)%0x1000)...)
 		var e [24]byte
 		binary.LittleEndian.PutUint64(e[0:], murmur3h1([]byte(f.path)))
 		binary.LittleEndian.PutUint32(e[8:], uint32(off))
@@ -586,6 +859,7 @@ func installVegMod(gameDir, outDir, mode string, log logFn) error {
 		return errors.New("não achei os arquivos de vegetação do jogo (pasta archives_win64)")
 	}
 	var files []vegFile
+	var streams []worldStreams
 	for _, w := range vegWorlds {
 		p := vegFilePath(w)
 		e, ok := entries[p]
@@ -605,10 +879,21 @@ func installVegMod(gameDir, outDir, mode string, log logFn) error {
 		}
 		files = append(files, vegFile{p, patched})
 		log("info", fmt.Sprintf("%s: %d tipos de objeto escondidos", mapLabel(w), n))
+		if sets, size, err := vegStreamSets(orig, mode); err == nil {
+			streams = append(streams, worldStreams{w, sets, size})
+		} else {
+			log("warn", mapLabel(w)+": "+err.Error()+" (vegetação pré-calculada continua carregando)")
+		}
 	}
 	if len(files) == 0 {
 		return errors.New("nenhum mapa foi modificado")
 	}
+	empties, err := emptyVegStreams(gameDir, streams, log)
+	if err != nil {
+		log("warn", err.Error()+" (só o alcance das camadas foi reduzido)")
+	}
+	files = append(files, empties...)
+	files = append(files, vegFile{vegMarkerPath, []byte("Tacklebox: vegetação escondida (modo " + mode + ")\r\n")})
 
 	// limpa versões anteriores do mod
 	uninstallVegMod(outDir)

@@ -16,12 +16,16 @@ import (
 	"image/png"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sys/windows"
 )
 
-const appVersion = "2.1.0"
+const appVersion = "2.2.0"
+
+// restartAfterGUI: a interface fechou para reabrir a versão recém-baixada.
+var restartAfterGUI atomic.Bool
 
 var (
 	flagAuto         = flag.Bool("auto", false, "aplica as opções salvas e abre o jogo, sem interface")
@@ -41,10 +45,13 @@ var (
 	flagTesteMapa    = flag.Bool("teste-mapa", false, "abre o mapa grande sobre o jogo (como o Ctrl+Shift+M) 4 s depois de iniciar (testes)")
 	flagJogoTeste    = flag.String("jogo-teste", "", "usa outro processo (ex.: notepad.exe) no lugar do jogo (testes)")
 	flagFoto         = flag.String("foto", "", "salva a foto de um peixe (nome do ícone) como PNG na pasta atual (diagnóstico)")
+	flagSemAtualizar = flag.Bool("sem-atualizar", false, "não procura versão nova no GitHub")
+	flagEsperarPid   = flag.Int("esperar-pid", 0, "espera este processo fechar antes de abrir (uso interno da atualização)")
 )
 
 func main() {
 	flag.Parse()
+	afterUpdate()
 	env := detectEnv(*flagIni, *flagSaidaMod, *flagTeste)
 
 	if *flagStatsJSON {
@@ -118,6 +125,11 @@ func main() {
 
 	if !*flagAuto && !*flagDesfazer {
 		if err := runGUI(env); err == nil {
+			if restartAfterGUI.Load() {
+				if err := relaunchSelf(); err != nil {
+					messageBox("Tacklebox", "O Tacklebox foi atualizado. Abra de novo para usar a versão nova.")
+				}
+			}
 			return
 		}
 		// sem WebView2 (Windows muito antigo): cai no modo automático
@@ -133,6 +145,13 @@ func runConsole(env Env) {
 	fmt.Println("   Tacklebox " + appVersion)
 	fmt.Println("==============================================")
 	fmt.Println()
+	// no modo de terminal a versão nova é instalada e vale a partir da próxima vez
+	if ver, err := selfUpdate(func(_, msg string) { fmt.Println(msg) }); ver != "" {
+		fmt.Println("Versão " + ver + " instalada; ela vale a partir da próxima vez.")
+		fmt.Println()
+	} else if err != nil {
+		debugf("atualização: %v", err)
+	}
 
 	if !*flagIgnorarAbert && gameRunning() {
 		fmt.Println("O jogo está aberto. Feche o jogo que eu continuo sozinho...")

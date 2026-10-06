@@ -8,6 +8,8 @@ Launcher para **Call of the Wild: The Angler** (Steam): suas estatísticas lidas
 
 **[Baixar Tacklebox.exe](https://github.com/CristiancMartini/tacklebox/releases/latest/download/Tacklebox.exe)** · Windows 10/11 64 bits · um arquivo só, não precisa instalar.
 
+Se atualiza sozinho: toda vez que abre, ele confere a última versão publicada aqui, baixa, confere o SHA-256 e reabre já atualizado (sem internet, só segue na versão que tem). Quem tem a 2.1.0 ou anterior baixa uma última vez.
+
 > O executável não é assinado digitalmente, então o Windows pode mostrar "O Windows protegeu o computador". Clique em **Mais informações → Executar assim mesmo**. O código está todo aqui se quiser conferir ou compilar você mesmo.
 
 ## O que tem
@@ -76,7 +78,7 @@ O mapa de cada reserva, feito com a textura do terreno do próprio jogo (lagos e
 ![Otimizar](docs/otimizar.png)
 
 - **Gráficos:** aplica no `settings.ini` os valores do **preset oficial mais leve** (tabela lida do executável do jogo), com vegetação, sombras pesadas, reflexos, SSAO, névoa volumétrica, profundidade de campo e VSync desligados. A resolução interna (50% a 100%) é reconstruída pelo **AMD FSR 2**, que já vem no jogo e funciona em qualquer placa. A tela mostra cada configuração antes e depois; antes da primeira mudança é feito um backup.
-- **Vegetação:** três modos, para todas as reservas, inclusive DLCs. O que some também perde a colisão, e os arquivos originais do jogo não são alterados.
+- **Vegetação:** três modos, para todas as reservas, inclusive DLCs. O que some nem é carregado pelo jogo (não fica escondido gastando FPS) e também perde a colisão; os arquivos originais do jogo não são alterados.
 
   | Modo | O que some |
   |---|---|
@@ -124,9 +126,9 @@ Detalhes para quem quiser mexer (tudo descoberto analisando os arquivos do jogo,
 - **Mapa:** `worlds/<reserva>/terrain/terrain_color_gpu_2048.ddsc` cobre os 16384 m do `WorldSize` (8 m por pixel, norte = -Z); lagos e rios vêm dos blocos de `global_water.blo`. Os ícones do mapa do jogo (classe de ícone nos `.blo` das localidades) trazem posição, tipo, nome de viagem rápida (o mesmo hash de `UnlockedFastTravelData` no save) e `mission_id`.
 - **Missão:** cada `objective_id` dos arquivos de missão tem lookup3 igual ao ID do objetivo no save; o texto da tela leva à chave de texto, dela ao objetivo e à área onde ele acontece, ajustada pelo ícone da missão no mapa.
 - **Gráficos:** `settings.ini`, seção `[Graphics]`. As faixas de cada opção e a tabela dos presets (Potato → Ultra) foram lidas do executável. A escala de resolução é `FrameScaleMinimum_V2` com `FrameScaleMode=2` (manual).
-- **Vegetação:** `worlds/<mapa>/climate/vegetation_layers.vegetationinfo` (ADF). O **alcance de cada camada** (`VegetationModelLayer.Range` e as camadas de billboard e de física) é aplicado na hora de desenhar; o Tacklebox põe 1 m nas camadas escolhidas e `0xdeadbeef` ("nenhum") na física e nos efeitos dos objetos delas, e grava um pacote extra `game<N+1>`. Testado e descartado: a pasta `dropzone` (a função que a monta está vazia no jogo publicado) e montar pastas com `--vfs-fs/--vfs-archive` (o jogo fecha ao entrar no mapa).
+- **Vegetação:** `worlds/<mapa>/climate/vegetation_layers.vegetationinfo` (ADF). O **alcance de cada camada** (`VegetationModelLayer.Range` e as camadas de billboard e de física) é aplicado na hora de desenhar; o Tacklebox põe 1 m nas camadas escolhidas e `0xdeadbeef` ("nenhum") na física e nos efeitos dos objetos delas, Isso só não basta: grama miúda é sorteada na hora pelas tabelas `VegetationSet.ProbabilityBuffer` (64 posições por canal com o índice do objeto ou -1), e o resto (mato, arbustos, pedras e árvores) vem pré-calculado em `worlds/<mapa>/terrain/veg_streampatches/width_<W>/patch_<nível>_<x>_<z>.streampatch`, que o jogo carrega em volta do jogador (cada camada de billboard lê `width_<StreamPatchMapWidth>` no nível `StreamPatchLod`, e a camada de modelo de origem usa as mesmas instâncias). O Tacklebox troca os objetos escondidos por -1 nas tabelas e substitui cada trecho escondido por um trecho vazio igual aos que o próprio jogo já tem (só o cabeçalho, `Size` 0), e grava tudo num pacote extra `game<N+1>`. Testado e descartado: a pasta `dropzone` (a função que a monta está vazia no jogo publicado) e montar pastas com `--vfs-fs/--vfs-archive` (o jogo fecha ao entrar no mapa).
 
-O código está organizado em: `core.go` (ações), `ini.go` (gráficos), `vegmod.go` (vegetação e formato dos pacotes), `adf.go`/`stats.go` (save), `gamedata.go`/`guide.go`/`rtpc.go`/`places.go`/`texture.go` (tabelas, guia, lugares e fotos), `livegame.go` (dados ao vivo), `mission.go` (destino da missão), `map.go` (imagem do mapa), `mycatches.go` (onde você pegou), `winsys.go` (Windows), `gui.go`/`window.go`/`overlay.go` e `ui/` (interface em WebView2).
+O código está organizado em: `core.go` (ações), `ini.go` (gráficos), `vegmod.go` (vegetação e formato dos pacotes), `adf.go`/`stats.go` (save), `gamedata.go`/`guide.go`/`rtpc.go`/`places.go`/`texture.go` (tabelas, guia, lugares e fotos), `livegame.go` (dados ao vivo), `mission.go` (destino da missão), `map.go` (imagem do mapa), `mycatches.go` (onde você pegou), `winsys.go` (Windows), `gui.go`/`window.go`/`overlay.go` e `ui/` (interface em WebView2), `update.go` (atualização automática pelas releases do GitHub).
 
 ## Compilar
 

@@ -279,6 +279,31 @@ func runGUI(env Env) error {
 		return nil
 	}
 
+	// atualização automática (update.go): se houver versão nova, baixa, espera
+	// terminar o que estiver sendo aplicado e reabre o programa já atualizado
+	go func() {
+		toast := func(level, msg string) {
+			push(level, msg)
+			if level == "warn" {
+				msg = "" // some o aviso; o erro fica no registro
+			}
+			call("onUpdate", msg)
+		}
+		ver, err := selfUpdate(toast)
+		if err != nil {
+			debugf("atualização: %v", err)
+		}
+		if ver == "" {
+			return
+		}
+		busy.Lock() // não deixa começar outra operação; o processo vai fechar
+		push("ok", "Tacklebox atualizado para a versão "+ver+". Reabrindo...")
+		call("onUpdate", "Atualizado para a versão "+ver+". Reabrindo...")
+		time.Sleep(2 * time.Second)
+		restartAfterGUI.Store(true)
+		w.Dispatch(func() { closeWindow(hwnd) })
+	}()
+
 	w.Bind("getInfo", func() map[string]interface{} {
 		return map[string]interface{}{
 			"version":  appVersion,

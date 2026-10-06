@@ -359,6 +359,13 @@
   html.rs-ew, html.rs-ew * { cursor: ew-resize !important; }
   html.rs-nwse, html.rs-nwse * { cursor: nwse-resize !important; }
   html.rs-nesw, html.rs-nesw * { cursor: nesw-resize !important; }
+  /* aviso de atualização automática */
+  .updtoast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 50; display: none; align-items: center; gap: 10px;
+              padding: 9px 14px; background: var(--panel-2); border: 1px solid var(--border-2); border-left: 3px solid var(--accent); border-radius: 4px;
+              box-shadow: 0 6px 24px rgba(0,0,0,.35); font-size: 12.5px; color: var(--text); max-width: calc(100vw - 32px); }
+  .updtoast.on { display: inline-flex; }
+  .updtoast .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent-soft); border-top-color: var(--accent); animation: updspin .8s linear infinite; flex: none; }
+  @keyframes updspin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -1323,6 +1330,20 @@ function renderLog() {
   short.scrollTop = short.scrollHeight;
 }
 window.onLog = ([level, msg]) => { logs.push({ level, msg, t: time() }); renderLog(); };
+// atualização automática: o programa baixa a versão nova e reabre sozinho
+window.onUpdate = (msg) => {
+  let t = $("#updToast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "updToast";
+    t.className = "updtoast";
+    t.setAttribute("role", "status");
+    t.innerHTML = '<span class="spin"></span><span></span>';
+    document.body.appendChild(t);
+  }
+  t.lastChild.textContent = msg;
+  t.classList.toggle("on", !!msg);
+};
 $("#clearLog").onclick = () => { logs = []; renderLog(); };
 function setBusy(b) {
   busy = b;
