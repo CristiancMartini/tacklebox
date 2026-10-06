@@ -5,6 +5,7 @@ package main
 // acompanha as atualizações do jogo sem depender de planilha.
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,10 +20,67 @@ type Tag struct {
 }
 
 type GuideBait struct {
-	Name   string `json:"name"`
-	Kind   string `json:"kind"`   // natural, viva, fundo, ceva
-	Weight int    `json:"weight"` // preferência do peixe (5 a 40)
-	Tier   int    `json:"tier"`   // 0 favorita, 1 boa, 2 às vezes
+	Name    string `json:"name"`
+	Kind    string `json:"kind"`              // natural, viva, fundo, ceva
+	Weight  int    `json:"weight"`            // preferência do peixe (5 a 40)
+	Tier    int    `json:"tier"`              // 0 favorita, 1 boa, 2 às vezes
+	HookMin int    `json:"hookMin,omitempty"` // anzóis compatíveis (1 = tamanho 10 ... 20 = 10/0)
+	HookMax int    `json:"hookMax,omitempty"`
+}
+
+// GuideHook diz que troféus um tamanho de anzol consegue fisgar de um peixe:
+// anzóis maiores afastam os peixes pequenos (no jogo, do 10 ao 1 e do 1/0 ao 10/0).
+type GuideHook struct {
+	Index int    `json:"index"` // 1 a 20
+	Size  string `json:"size"`
+	Ranks []int  `json:"ranks"` // 0 juvenil ... 5 lendário
+}
+
+// hookLabel devolve o tamanho de um anzol: 1..10 = "10".."1", 11..20 = "1/0".."10/0".
+func hookLabel(i int) string {
+	if i <= 10 {
+		return strconv.Itoa(11 - i)
+	}
+	return strconv.Itoa(i-10) + "/0"
+}
+
+var rankIndex = map[string]int{"juvenile": 0, "bronze": 1, "silver": 2, "gold": 3, "diamond": 4, "legendary": 5}
+
+// hookTable lê hook_meta_data: para cada FishID, os anzóis e os troféus que eles pegam.
+// As células são "FishID/ranque/ranque..."; "gte" significa "deste para cima".
+func hookTable(t csvTable) map[string][]GuideHook {
+	out := map[string][]GuideHook{}
+	for _, r := range t.rows {
+		var idx int
+		if _, err := fmt.Sscanf(t.get(r, "HookId"), "hook_%d", &idx); err != nil || idx < 1 {
+			continue
+		}
+		for _, cell := range r[2:] {
+			parts := strings.Split(strings.TrimSpace(cell), "/")
+			if len(parts) < 2 {
+				continue
+			}
+			var ranks []int
+			for _, p := range parts[1:] {
+				if p == "gte" && len(ranks) > 0 {
+					for k := ranks[len(ranks)-1] + 1; k <= 4; k++ {
+						ranks = append(ranks, k)
+					}
+					continue
+				}
+				if k, ok := rankIndex[p]; ok {
+					ranks = append(ranks, k)
+				}
+			}
+			if len(ranks) > 0 {
+				out[parts[0]] = append(out[parts[0]], GuideHook{Index: idx, Size: hookLabel(idx), Ranks: ranks})
+			}
+		}
+	}
+	for id := range out {
+		sort.Slice(out[id], func(a, b int) bool { return out[id][a].Index < out[id][b].Index })
+	}
+	return out
 }
 
 type GuideLure struct {
@@ -53,6 +111,7 @@ type GuideFish struct {
 	KGMin     float64     `json:"kgMin"`
 	KGMax     []float64   `json:"kgMax"` // teto de peso por medalha (juvenil..diamante); lendário: 1 valor
 	Baits     []GuideBait `json:"baits"`
+	Hooks     []GuideHook `json:"hooks"` // anzóis que pegam este peixe, do menor para o maior
 	Lures     []GuideLure `json:"lures"`
 }
 
@@ -205,6 +264,7 @@ func buildGuide(gameDir string) Guide {
 	items := parseTable(gd.raw["item_defs"])
 	lureTable := parseTable(gd.raw["lure_groups"])
 	special := legendTraits(gd)
+	hooks := hookTable(parseTable(gd.raw["hook_meta_data"]))
 
 	itemByID := map[string][]string{}
 	for _, r := range items.rows {
@@ -224,6 +284,7 @@ func buildGuide(gameDir string) Guide {
 			return baits, lures
 		}
 		best := map[string]int{}
+		baitHooks := map[string][2]int{}
 		var order []string
 		styles := map[string]map[string]int{}
 		var lureOrder []string
@@ -256,13 +317,21 @@ func buildGuide(gameDir string) Guide {
 			if _, ok := best[key]; !ok {
 				order = append(order, key)
 			}
+			var a, z int
+			if n, _ := fmt.Sscanf(items.get(it, "CompatibleItems"), "hook#%d#%d", &a, &z); n == 2 {
+				baitHooks[key] = [2]int{a, z}
+			}
 			if w > best[key] {
 				best[key] = w
 			}
 		}
 		for _, key := range order {
 			kind, name, _ := strings.Cut(key, "\x00")
-			baits = append(baits, GuideBait{Name: name, Kind: kind, Weight: best[key]})
+			b := GuideBait{Name: name, Kind: kind, Weight: best[key]}
+			if hr, ok := baitHooks[key]; ok {
+				b.HookMin, b.HookMax = hr[0], hr[1]
+			}
+			baits = append(baits, b)
 		}
 		sort.SliceStable(baits, func(i, j int) bool { return baits[i].Weight > baits[j].Weight })
 		for _, group := range lureOrder {
@@ -399,6 +468,10 @@ func buildGuide(gameDir string) Guide {
 				f.KGMax = append(f.KGMax, t.num(r, "MAX_KG_"+rank))
 			}
 			f.Baits, f.Lures = tackle(id)
+			f.Hooks = hooks[id]
+			if f.Hooks == nil {
+				f.Hooks = []GuideHook{}
+			}
 			res.Fish = append(res.Fish, f)
 		}
 		sort.SliceStable(res.Fish, func(i, j int) bool { return res.Fish[i].Name < res.Fish[j].Name })
@@ -433,6 +506,10 @@ func buildGuide(gameDir string) Guide {
 			}
 			f.Traits, f.Time = traits(lt.get(r, "Traits"))
 			f.Baits, f.Lures = tackle(id)
+			f.Hooks = hooks[id]
+			if f.Hooks == nil {
+				f.Hooks = []GuideHook{}
+			}
 			res.Fish = append(res.Fish, f)
 			for _, z := range strings.Split(lt.get(r, "SpawnZones"), "/") {
 				if z = strings.TrimSpace(z); z != "" {

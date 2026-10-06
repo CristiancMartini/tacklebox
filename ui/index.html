@@ -294,6 +294,12 @@
   .tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 3px; border: 1px solid; }
   .tag.leg { color: var(--r5); border-color: rgba(195,139,255,.5); background: rgba(195,139,255,.1); }
   kbd { font: 600 11px "Segoe UI", sans-serif; padding: 1px 6px; border-radius: 3px; background: #1b212b; border: 1px solid var(--border-2); color: var(--text-2); }
+  .hooks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .hookc { display: inline-flex; flex-direction: column; align-items: center; min-width: 46px; padding: 4px 6px; border-radius: 3px; background: #1e2530; border: 1px solid var(--border-2); border-top-width: 3px; }
+  .hookc b { font-size: 13px; color: var(--text); }
+  .hookc small { font-size: 10.5px; color: var(--muted); }
+  .hooknote { margin-top: 8px; font-size: 12.5px; color: var(--text-2); }
+  .hooknote b { color: var(--r4); }
   .credit { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
   .gthumb { width: 58px; height: 31px; flex: none; position: relative; display: grid; place-items: center; }
   .gthumb img { width: 58px; height: 31px; object-fit: contain; }
@@ -882,6 +888,18 @@ function renderReserves() {
 }
 
 /* ---------- guia ---------- */
+// anzóis: faixa que pega o peixe e a faixa em que só os maiores mordem
+const hookLabel = (i) => i <= 10 ? String(11 - i) : (i - 10) + "/0";
+function hookSummary(f) {
+  const hs = f.hooks || [];
+  if (!hs.length) return null;
+  const rng = (a, b) => a.index === b.index ? a.size : a.size + "–" + b.size;
+  const minRank = (h) => Math.min(...h.ranks);
+  const top = Math.max(...hs.map(minRank));
+  const topHooks = hs.filter(h => minRank(h) === top);
+  return { all: rng(hs[0], hs[hs.length - 1]), top, topRange: topHooks.length && top > 0 && topHooks.length < hs.length ? rng(topHooks[0], topHooks[topHooks.length - 1]) : "" };
+}
+
 let guide = null, gSel = "", live = { ok: false }, thumbs = {}, photos = {}, myCatches = [];
 const KIND = { missao: "Missão", desafio: "Desafio", lendario: "Lendário", voce: "Você pegou" };
 const DIRS = ["N", "NE", "L", "SE", "S", "SO", "O", "NO"];
@@ -948,6 +966,17 @@ function renderGuide() {
   renderFish(res, list.find(f => f.id === gSel), idx);
 }
 
+function hookSection(f) {
+  const hk = hookSummary(f);
+  if (!hk) return "";
+  const cells = f.hooks.map(h => { const m = Math.min(...h.ranks); return `<span class="hookc" style="border-top-color:${RANKC[m]}" title="${h.ranks.map(r => RANKS[r]).join(", ")}"><b>${h.size}</b><small>${RANKS[m].toLowerCase()}${m < 4 ? "+" : ""}</small></span>`; }).join("");
+  // isca favorita que cabe nos anzóis só de troféu
+  const top = f.hooks.filter(h => Math.min(...h.ranks) === hk.top).map(h => h.index);
+  const fits = f.baits.filter(b => b.hookMin && top.some(i => i >= b.hookMin && i <= b.hookMax) && b.kind !== "ceva").slice(0, 3).map(b => b.name);
+  const note = hk.topRange ? `Só <b>${RANKS[hk.top]}</b> morde no anzol <b>${hk.topRange}</b>` + (fits.length ? ` · iscas que servem nele: ${esc(fits.join(", "))}` : " · nenhuma isca natural serve nele: use artificial") + "." : "";
+  return `<div class="gsec"><h3>Anzol <span style="text-transform:none;letter-spacing:0;font-weight:400"> · troféu mínimo que morde em cada tamanho</span></h3><div class="hooks">${cells}</div>${note ? `<div class="hooknote">${note}</div>` : ""}</div>`;
+}
+
 function renderFish(res, f, idx) {
   if (!f) { $("#gDetail").innerHTML = `<div class="empty">Escolha um peixe.</div>`; return; }
   const st = f.legendary ? null : idx[res.world + ":" + f.speciesId];
@@ -955,7 +984,7 @@ function renderFish(res, f, idx) {
     : f.legendary ? `<div class="sub2">peixe lendário</div>` : `<div class="sub2">você ainda não pegou</div>`;
   const tiers = [0, 1, 2].map(t => {
     const bs = f.baits.filter(b => b.tier === t);
-    return bs.length ? `<div class="tier"><span>${TIERS[t]}</span><div class="chips">${bs.map(b => `<span class="chip${t === 0 ? " fav" : t === 2 ? " weak" : ""}">${esc(b.name)}<small>${b.kind}</small></span>`).join("")}</div></div>` : "";
+    return bs.length ? `<div class="tier"><span>${TIERS[t]}</span><div class="chips">${bs.map(b => `<span class="chip${t === 0 ? " fav" : t === 2 ? " weak" : ""}"${b.hookMin ? ` title="anzol ${hookLabel(b.hookMin)} a ${hookLabel(b.hookMax)}"` : ""}>${esc(b.name)}<small>${b.kind}${b.hookMin ? " · " + hookLabel(b.hookMin) + "–" + hookLabel(b.hookMax) : ""}</small></span>`).join("")}</div></div>` : "";
   }).join("");
   const lures = f.lures.map(l => `<div class="lrow"><span class="strong">${esc(l.name)}</span><div class="chips">${l.styles.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div><span class="pref p${l.tier}">${PREF[l.tier]}</span></div>`).join("");
   const tags = (arr) => arr.length ? `<div class="chips">${arr.map(t => `<span class="chip" title="${esc(t.en || "")}">${esc(t.name)}</span>`).join("")}</div>` : `<span class="muted small">—</span>`;
@@ -991,6 +1020,7 @@ function renderFish(res, f, idx) {
       <div class="tile"><b style="font-size:15px;padding:2px 0">${esc(f.current || "—")}</b><span>Correnteza</span></div>
     </div>
     ${spotHtml ? `<div class="gsec"><h3>Onde pegar <span style="text-transform:none;letter-spacing:0;font-weight:400"> · ${spotNote} · <a class="link" data-map="${esc(f.id)}">ver no mapa</a></span></h3>${spotHtml}</div>` : ""}
+    ${hookSection(f)}
     <div class="gsec"><h3>Iscas</h3>${tiers || `<span class="muted small">Nenhuma isca natural.</span>`}</div>
     ${lures ? `<div class="gsec"><h3>Iscas artificiais e recolhimento</h3>${lures}</div>` : ""}
     ${f.legendary ? "" : `<div class="gsec" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">

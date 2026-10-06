@@ -56,6 +56,8 @@
   .s { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .s em { font-style: normal; color: #9fd3f1; }
   .when { display: inline-flex; color: var(--muted); }
+  .dh { font-size: 10.5px; font-weight: 600; color: var(--r4); white-space: nowrap; }
+  .s .hk { color: var(--text-2); }
   .when.dia { color: #e9c46a; } .when.noite { color: #9db4ff; }
   .go { flex: none; text-align: right; min-width: 54px; font-size: 11.5px; color: var(--text-2); display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
   .go b { font-weight: 600; }
@@ -100,6 +102,18 @@ const SUN = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke=
 const MOON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
 const arrow = (deg, size = 14, color = "currentColor") => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="transform:rotate(${Math.round(deg)}deg)"><path d="M12 2 19 21l-7-4-7 4z" fill="${color}"/></svg>`;
 const MAXROWS = 9;
+// anzóis: faixa que pega o peixe e a faixa em que só os maiores mordem
+const hookLabel = (i) => i <= 10 ? String(11 - i) : (i - 10) + "/0";
+function hookSummary(f) {
+  const hs = f.hooks || [];
+  if (!hs.length) return null;
+  const rng = (a, b) => a.index === b.index ? a.size : a.size + "–" + b.size;
+  const minRank = (h) => Math.min(...h.ranks);
+  const top = Math.max(...hs.map(minRank));
+  const topHooks = hs.filter(h => minRank(h) === top);
+  return { all: rng(hs[0], hs[hs.length - 1]), top, topRange: topHooks.length && top > 0 && topHooks.length < hs.length ? rng(topHooks[0], topHooks[topHooks.length - 1]) : "" };
+}
+
 
 let guide = null, stats = null, live = { ok: false }, thumbs = {}, mine = [];
 
@@ -223,9 +237,10 @@ function render() {
     const fav = [...f.baits.filter(b => b.tier === 0 && b.kind !== "ceva").map(b => b.name), ...f.lures.filter(l => l.tier === 0).map(l => l.name)];
     const when = f.time === "dia" ? `<span class="when dia">${SUN}</span>` : f.time === "noite" ? `<span class="when noite">${MOON}</span>` : "";
     const img = thumbs[f.icon];
+    const hk = hookSummary(f);
     return `<div class="row">
       <div class="thumb${r < 0 ? " no" : ""}">${img ? `<img src="${img}" alt="">` : ""}${r >= 0 ? `<span class="rk" style="background:${RANKC[r]}"></span>` : ""}</div>
-      <div class="g"><div class="t1">${esc(f.name)} ${when}</div><div class="s">${range(f.depthMin, f.depthMax, " m")} · <em>${esc(fav.slice(0, 3).join(", ") || "—")}</em></div></div>
+      <div class="g"><div class="t1">${esc(f.name)} ${when}${hk && hk.topRange ? ` <span class="dh" title="Nestes anzóis só ${RANKS[hk.top]} morde">◆ ${hk.topRange}</span>` : ""}</div><div class="s">${range(f.depthMin, f.depthMax, " m")}${hk ? ` · <span class="hk">anzol ${hk.all}</span>` : ""} · <em>${esc(fav.slice(0, 3).join(", ") || "—")}</em></div></div>
       ${sp ? `<div class="go">${arrow(sp.b - live.heading, 12)}<b>${dist(sp.d)}</b></div>` : ""}</div>`;
   };
   $("#list").innerHTML = list.length ? list.slice(0, MAXROWS).map(rowHtml).join("") + (list.length > MAXROWS ? `<div class="more">+${list.length - MAXROWS} no Tacklebox (Ctrl+Shift+G)</div>` : "")

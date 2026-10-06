@@ -34,7 +34,7 @@ func loadGameData(gameDir string) *gameData {
 		if gameDir == "" {
 			return
 		}
-		tables := []string{"progression_curves", "fish_codex_bait_compatibility", "item_defs", "lure_groups"}
+		tables := []string{"progression_curves", "fish_codex_bait_compatibility", "item_defs", "lure_groups", "hook_meta_data"}
 		for _, w := range vegWorlds {
 			tables = append(tables, "fish_codex_"+w, "fish_codex_legendary_"+w)
 		}
