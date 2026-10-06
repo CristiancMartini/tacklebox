@@ -75,3 +75,10 @@ func dragWindow(hwnd uintptr) {
 func minimizeWindow(hwnd uintptr) { procShowWindow.Call(hwnd, swMinimize) }
 
 func closeWindow(hwnd uintptr) { procPostMessage.Call(hwnd, wmClose, 0, 0) }
+
+// windowShown: visível e não minimizada.
+func windowShown(hwnd uintptr) bool {
+	v, _, _ := procIsVisible.Call(hwnd)
+	i, _, _ := procIsIconic.Call(hwnd)
+	return v != 0 && i == 0
+}

@@ -66,8 +66,7 @@
             background: var(--bar); border-bottom: 1px solid #10141b; color: var(--muted); font-size: 12.5px; }
   .crumb { padding: 3px 9px; border-radius: 3px; background: #1f2630; color: var(--text-2); }
   .live { margin-left: auto; display: flex; align-items: center; gap: 7px; }
-  .live .dot.g { animation: pulse 2s infinite; }
-  @keyframes pulse { 50% { opacity: .35; } }
+  .live .dot.g { box-shadow: 0 0 0 2px rgba(80,200,120,.22); } /* sem animação: animar obriga o Windows a recompor a tela a cada quadro, inclusive por cima do jogo */
 
   /* corpo */
   .body { flex: 1; min-height: 0; display: flex; }
@@ -1294,7 +1293,11 @@ function renderOptSummary() {
 
 /* ---------- status ---------- */
 const dot = (id, c) => $(id).className = "dot " + (c || "");
+// janela escondida (jogando): os timers não fazem nada até ela voltar
+let pageHidden = false;
+window.onVisible = (v) => { pageHidden = !v; if (v) refresh(); };
 async function refresh() {
+  if (pageHidden) return;
   let s;
   try { s = await getStatus(); } catch (e) { return; }
   gameRunning = s.gameRunning;
@@ -1379,7 +1382,7 @@ $("#lnkRepo").onclick = () => openURL(info.repo);
   renderOptSummary();
   refresh();
   setInterval(refresh, 2000);
-  setInterval(() => { if (stats && stats.ok) renderStats(); }, 60000);
+  setInterval(() => { if (!pageHidden && stats && stats.ok) renderStats(); }, 60000);
   const s = await getStats(); if (s) window.onStats(s);
   const m = await getMaps(); if (m) window.onMaps(m);
   live = (await getLive()) || { ok: false };

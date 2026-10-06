@@ -202,12 +202,31 @@ func vegWant() map[uint64]string {
 	return want
 }
 
+// singleBlockTab lê só o cabeçalho do .tab e diz se ele tem um bloco (como o nosso).
+func singleBlockTab(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var h [0x14]byte
+	if _, err := io.ReadFull(f, h[:]); err != nil {
+		return false
+	}
+	return string(h[:4]) == "TAB\x00" && binary.LittleEndian.Uint32(h[0x10:]) == 1
+}
+
 // ownArchives lista os game*.tab gerados por este programa.
 func ownArchives(initDir string) []string {
 	want := vegWant()
 	var own []string
 	tabs, _ := filepath.Glob(filepath.Join(initDir, "game*.tab"))
 	for _, tp := range tabs {
+		// a interface pergunta isso a cada 2 s: os pacotes do jogo têm centenas de
+		// blocos, então o cabeçalho basta para descartá-los sem ler o arquivo todo
+		if !singleBlockTab(tp) {
+			continue
+		}
 		if b, err := os.ReadFile(tp); err == nil && isOwnTab(b, want) {
 			own = append(own, tp)
 		}

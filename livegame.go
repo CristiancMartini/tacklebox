@@ -86,6 +86,31 @@ type liveReader struct {
 	scanning atomic.Bool
 	nextScan time.Time
 	backoff  time.Duration
+	cmdWorld string // reserva vinda do convite da Steam (linha de comando do jogo)
+}
+
+// worldFromCommandLine: quem entra na partida de outro pelo convite da Steam não passa
+// pela tela de reservas (de onde vem o CReserveSelectModel); o jogo é aberto (ou
+// reaberto) com "<n>~~<lobby>~~<reserva>~~<n>" na linha de comando.
+func worldFromCommandLine(h windows.Handle) string {
+	buf := make([]byte, 64<<10)
+	var n uint32
+	if windows.NtQueryInformationProcess(h, windows.ProcessCommandLineInformation, unsafe.Pointer(&buf[0]), uint32(len(buf)), &n) != nil {
+		return ""
+	}
+	us := (*windows.NTUnicodeString)(unsafe.Pointer(&buf[0]))
+	if us.Buffer == nil || us.Length == 0 {
+		return ""
+	}
+	cmd := windows.UTF16ToString(unsafe.Slice(us.Buffer, us.Length/2))
+	for _, arg := range strings.Fields(cmd) {
+		for _, part := range strings.Split(arg, "~~") {
+			if w := strings.ToLower(strings.Trim(part, `"`)); mapNames[w][0] != "" {
+				return w
+			}
+		}
+	}
+	return ""
 }
 
 // readLive devolve o estado atual; nunca bloqueia por muito tempo (a busca dos
@@ -109,6 +134,7 @@ func (r *liveReader) read(env Env) Live {
 			return Live{Status: "Sem acesso ao jogo"}
 		}
 		r.pid, r.h, r.base = pid, h, moduleBase(pid)
+		r.cmdWorld = worldFromCommandLine(h)
 		r.obj = map[string]uintptr{}
 		r.backoff = 5 * time.Second
 		r.nextScan = time.Time{}
@@ -147,6 +173,9 @@ func (r *liveReader) read(env Env) Live {
 		if w := r.str(r.obj["CReserveSelectModel"] + offReserveName); mapNames[w][0] != "" {
 			l.World = w
 		}
+	}
+	if l.World == "" {
+		l.World = r.cmdWorld
 	}
 	return l
 }

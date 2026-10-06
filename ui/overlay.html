@@ -23,8 +23,7 @@
   .head b { font-size: 12.5px; font-weight: 700; }
   .livetag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); white-space: nowrap; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
-  .dot.on { background: var(--green); animation: pulse 2s infinite; }
-  @keyframes pulse { 50% { opacity: .35; } }
+  .dot.on { background: var(--green); box-shadow: 0 0 0 2px rgba(80,200,120,.22); } /* sem animação: animar obriga o Windows a recompor a tela a cada quadro */
   .reserve { margin-left: auto; color: var(--text-2); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .card { flex: none; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -190,11 +189,15 @@ function nearestSpot(res, f) {
   return best;
 }
 
+// setHTML só mexe no elemento se o conteúdo mudou: cada mudança faz o painel ser
+// redesenhado por cima do jogo, então nada é refeito à toa
+const setHTML = (el, html) => { if (el._h !== html) { el._h = html; el.innerHTML = html; } };
+
 function render() {
   if (!guide) return;
-  if (!guide.ok) { $("#list").innerHTML = `<div class="empty">${esc(guide.error || "Guia indisponível.")}</div>`; return; }
+  if (!guide.ok) { setHTML($("#list"), `<div class="empty">${esc(guide.error || "Guia indisponível.")}</div>`); return; }
   const res = reserve();
-  $("#livetag").innerHTML = live.ok ? `<span class="dot on"></span><span>ao vivo</span>` : `<span class="dot"></span><span>${esc(live.status || "jogo fechado")}</span>`;
+  setHTML($("#livetag"), live.ok ? `<span class="dot on"></span><span>ao vivo</span>` : `<span class="dot"></span><span>${esc(live.status || "jogo fechado")}</span>`);
   $("#reserve").textContent = res.name;
 
   // missão: a da tela do jogo; sem jogo aberto, a rastreada no save
@@ -207,7 +210,7 @@ function render() {
   const goal = tg ? `<div class="goal">${arrow(bearing(tg.x, tg.z) - live.heading, 18, "var(--goal)")}<b>${dist(Math.hypot(tg.x - live.x, tg.z - live.z))}</b><span>até o objetivo · ${cardinal(bearing(tg.x, tg.z))}</span></div>` +
     (tg.travel ? `<div class="tv">Viagem rápida: ${esc(tg.travel)} (${dist(tg.travelDist)} do objetivo)</div>` : "") : "";
   $("#mission").style.display = mName ? "" : "none";
-  $("#mission").innerHTML = mName ? `<div class="k">Missão</div><div class="t1">${esc(mName)}</div>${mObj ? `<div class="obj">${esc(mObj)}</div>` : ""}${goal}` : "";
+  setHTML($("#mission"), mName ? `<div class="k">Missão</div><div class="t1">${esc(mName)}</div>${mObj ? `<div class="obj">${esc(mObj)}</div>` : ""}${goal}` : "");
   drawMini(res);
 
   // faixa: direção, peixes aqui e capturas de hoje
@@ -219,10 +222,10 @@ function render() {
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
   const today = stats && stats.ok ? (stats.catches || []).filter(c => c.date * 1000 >= midnight.getTime()) : [];
   const best = today.reduce((a, c) => !a || c.weight > a.weight ? c : a, null);
-  $("#strip").innerHTML = `
+  setHTML($("#strip"), `
     <div class="compass">${here() ? arrow(live.heading, 14, "var(--accent-h)") + `<span>${cardinal(live.heading)} ${Math.round(live.heading)}°</span>` : `<span class="muted">—</span>`}</div>
     <div class="mid"><b>${pool.length}</b> espécies ${here() ? "aqui" : "na reserva"}${missing ? ` · faltam <b>${missing}</b>` : " · todas pegas"}</div>
-    <div class="today">hoje <b>${today.length}</b>${best ? ` · ${kg(best.weight)}` : ""}</div>`;
+    <div class="today">hoje <b>${today.length}</b>${best ? ` · ${kg(best.weight)}` : ""}</div>`);
 
   // peixes: os que faltam primeiro, depois o ponto mais perto
   const list = pool.map(f => ({ f, st: idx[f.speciesId], sp: nearestSpot(res, f) }));
@@ -232,7 +235,7 @@ function render() {
     if (a.sp && b.sp) return a.sp.d - b.sp.d;
     return a.f.name.localeCompare(b.f.name);
   });
-  const rowHtml = ({ f, st, sp }) => {
+  const rowHtml = ({ f, st, sp }, k) => {
     const r = st && st.caught ? topRank(st) : -1;
     const fav = [...f.baits.filter(b => b.tier === 0 && b.kind !== "ceva").map(b => b.name), ...f.lures.filter(l => l.tier === 0).map(l => l.name)];
     const when = f.time === "dia" ? `<span class="when dia">${SUN}</span>` : f.time === "noite" ? `<span class="when noite">${MOON}</span>` : "";
@@ -241,10 +244,18 @@ function render() {
     return `<div class="row">
       <div class="thumb${r < 0 ? " no" : ""}">${img ? `<img src="${img}" alt="">` : ""}${r >= 0 ? `<span class="rk" style="background:${RANKC[r]}"></span>` : ""}</div>
       <div class="g"><div class="t1">${esc(f.name)} ${when}${hk && hk.topRange ? ` <span class="dh" title="Nestes anzóis só ${RANKS[hk.top]} morde">◆ ${hk.topRange}</span>` : ""}</div><div class="s">${range(f.depthMin, f.depthMax, " m")}${hk ? ` · <span class="hk">anzol ${hk.all}</span>` : ""} · <em>${esc(fav.slice(0, 3).join(", ") || "—")}</em></div></div>
-      ${sp ? `<div class="go">${arrow(sp.b - live.heading, 12)}<b>${dist(sp.d)}</b></div>` : ""}</div>`;
+      ${sp ? `<div class="go" data-go="${k}"></div>` : ""}</div>`;
   };
-  $("#list").innerHTML = list.length ? list.slice(0, MAXROWS).map(rowHtml).join("") + (list.length > MAXROWS ? `<div class="more">+${list.length - MAXROWS} no Tacklebox (Ctrl+Shift+G)</div>` : "")
-    : `<div class="empty">Nenhum peixe neste trecho.</div>`;
+  // as linhas (com as fotos) só são refeitas quando muda quem aparece ou a ordem;
+  // seta e distância de cada uma são atualizadas à parte
+  const rows = list.slice(0, MAXROWS);
+  const box = $("#list");
+  setHTML(box, rows.length ? rows.map(rowHtml).join("") + (list.length > MAXROWS ? `<div class="more">+${list.length - MAXROWS} no Tacklebox (Ctrl+Shift+G)</div>` : "")
+    : `<div class="empty">Nenhum peixe neste trecho.</div>`);
+  rows.forEach(({ sp }, k) => {
+    const el = sp && box.querySelector(`[data-go="${k}"]`);
+    if (el) setHTML(el, `${arrow(sp.b - live.heading, 12)}<b>${dist(sp.d)}</b>`);
+  });
 }
 
 // ---------- minimapa ----------

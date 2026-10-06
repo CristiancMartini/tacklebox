@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,18 +101,41 @@ func runGUI(env Env) error {
 		both("onThumbs", t)
 	}()
 
-	// Dados ao vivo do jogo (memória, só leitura), duas vezes por segundo.
+	// Dados ao vivo do jogo (memória, só leitura), duas vezes por segundo. Janela
+	// escondida não recebe nada (redesenhar à toa custa FPS do jogo); quando ela volta,
+	// recebe o estado mais recente. A página principal também fica sabendo quando está
+	// escondida, para parar os próprios timers.
 	go func() {
 		var last []byte
+		mainStale, ovStale := true, true
+		mainWasOn := true
 		for {
 			l := readLive(env)
+			// parado, a câmera ainda oscila um pouco: sem arredondar, toda leitura
+			// "mudaria" e o painel seria redesenhado à toa
+			l.X, l.Y, l.Z = math.Round(l.X*10)/10, math.Round(l.Y*10)/10, math.Round(l.Z*10)/10
+			l.Heading = math.Round(l.Heading*2) / 2
 			shared.Lock()
 			l.Target = missionTarget(guide, stats, l)
 			live = l
+			o := ov
 			shared.Unlock()
 			if b, _ := json.Marshal(l); string(b) != string(last) {
 				last = b
-				both("onLive", l)
+				mainStale, ovStale = true, true
+			}
+			mainOn := windowShown(hwnd)
+			if mainOn != mainWasOn {
+				mainWasOn = mainOn
+				call("onVisible", mainOn)
+			}
+			if mainOn && mainStale {
+				mainStale = false
+				call("onLive", l)
+			}
+			if o != nil && o.visible() && ovStale {
+				ovStale = false
+				o.call("onLive", l)
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
